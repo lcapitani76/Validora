@@ -57,6 +57,12 @@
   <p id="account"></p>
 
   <div class="section">
+    <h3>🪙 Approva il contratto</h3>
+    <input type="number" id="approveAmount" placeholder="Quantità VLD da approvare" />
+    <button id="approve">Approva</button>
+  </div>
+
+  <div class="section">
     <h3>🪙 Fai stake dei tuoi VLD</h3>
     <input type="number" id="amount" placeholder="Quantità VLD" />
     <button id="stake">Stake</button>
@@ -75,14 +81,21 @@
 
   <script>
     const contractAddress = "0xd8a1709479Ee4F25968Efa2914c634C8dAe55592"; // VLDStaking su BSC Testnet
+    const tokenAddress = "0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b"; // Token VLD
+
     const abi = [
       "function stake(uint256 amount) public",
       "function claimReward() public",
       "function unstake() public"
     ];
 
+    const tokenAbi = [
+      "function approve(address spender, uint256 amount) public returns (bool)"
+    ];
+
     let signer;
     let stakingContract;
+    let tokenContract;
 
     document.getElementById("connect").onclick = async () => {
       try {
@@ -95,7 +108,7 @@
           document.getElementById("account").innerText = `Wallet: ${address}`;
 
           stakingContract = new ethers.Contract(contractAddress, abi, signer);
-          console.log("Contratto staking caricato:", stakingContract);
+          tokenContract = new ethers.Contract(tokenAddress, tokenAbi, signer);
           alert("Wallet connesso!");
         } else {
           alert("Installa Metamask!");
@@ -106,14 +119,31 @@
       }
     };
 
+    document.getElementById("approve").onclick = async () => {
+      if (!tokenContract) return alert("Wallet non connesso");
+
+      const amount = document.getElementById("approveAmount").value;
+      if (!amount || isNaN(amount)) return alert("Inserisci un importo valido da approvare");
+
+      const amountParsed = ethers.utils.parseUnits(amount, 18);
+
+      try {
+        const tx = await tokenContract.approve(contractAddress, amountParsed);
+        await tx.wait();
+        alert("Approvazione completata!");
+      } catch (e) {
+        console.error("Errore durante l'approvazione:", e);
+        alert("Errore durante l'approvazione");
+      }
+    };
+
     document.getElementById("stake").onclick = async () => {
       if (!stakingContract) return alert("Devi prima connettere il wallet!");
 
       const amount = document.getElementById("amount").value;
       if (!amount || isNaN(amount)) return alert("Inserisci un importo valido");
 
-      const decimals = 18; // Assumiamo che VLD abbia 18 decimali
-      const amountParsed = ethers.utils.parseUnits(amount, decimals);
+      const amountParsed = ethers.utils.parseUnits(amount, 18);
 
       try {
         const tx = await stakingContract.stake(amountParsed);
