@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>VLD Staking</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.min.js"></script>
+</head>
+<body>
+  <h1>VLD Staking Interface</h1>
+  <button id="connect">Connetti Wallet</button>
+  <p id="account"></p>
+
+  <hr>
+
+  <h3>Fai stake dei tuoi VLD</h3>
+  <input type="number" id="amount" placeholder="Quantita VLD" />
+  <button id="stake">Stake</button>
+
+  <h3>Claim reward</h3>
+  <button id="claim">Claim</button>
+
+  <h3>Unstake</h3>
+  <button id="unstake">Unstake</button>
+
+  <script>
+    const contractAddress = "0xd8a1709479Ee4F25968Efa2914c634C8dAe55592"; // VLDStaking su BSC Testnet
+    const abi = [
+      "function stake(uint256 amount) public",
+      "function claimReward() public",
+      "function unstake() public"
+    ];
+
+    let signer;
+    let stakingContract;
+
+    document.getElementById("connect").onclick = async () => {
+      if (window.ethereum) {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = await provider.getSigner();
+
+        const address = await signer.getAddress();
+        document.getElementById("account").innerText = `Wallet: ${address}`;
+
+        stakingContract = new ethers.Contract(contractAddress, abi, signer);
+        alert("Wallet connesso!");
+      } else {
+        alert("Installa Metamask!");
+      }
+    };
+
+    document.getElementById("stake").onclick = async () => {
+      const amount = document.getElementById("amount").value;
+      if (!amount || isNaN(amount)) return alert("Inserisci un importo valido");
+
+      const decimals = 18; // Assumiamo che VLD abbia 18 decimali
+      const amountParsed = ethers.parseUnits(amount, decimals);
+
+      try {
+        const tx = await stakingContract.stake(amountParsed);
+        await tx.wait();
+        alert("Stake eseguito!");
+      } catch (e) {
+        console.error(e);
+        alert("Errore durante lo stake");
+      }
+    };
+
+    document.getElementById("claim").onclick = async () => {
+      try {
+        const tx = await stakingContract.claimReward();
+        await tx.wait();
+        alert("Reward ricevuto!");
+      } catch (e) {
+        console.error(e);
+        alert("Errore durante il claim");
+      }
+    };
+
+    document.getElementById("unstake").onclick = async () => {
+      try {
+        const tx = await stakingContract.unstake();
+        await tx.wait();
+        alert("Unstake completato!");
+      } catch (e) {
+        console.error(e);
+        alert("Errore durante l'unstake");
+      }
+    };
+  </script>
+</body>
+</html>
