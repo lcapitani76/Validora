@@ -170,7 +170,13 @@
           const approveTx = await tokenContract.approve(contractAddress, amountParsed);
           await approveTx.wait();
         }
-        const gasEstimate = await stakingContract.estimateGas.stake(amountParsed);
+        try {
+          const gasEstimate = await stakingContract.estimateGas.stake(amountParsed);
+          console.log("Gas stimato:", gasEstimate.toString());
+      } catch (err) {
+          console.error("Estimate gas fallito:", err);
+      }
+
         console.log("Gas stimato:", gasEstimate.toString());
 
         const stakeTx = await stakingContract.stake(amountParsed, {
@@ -178,7 +184,7 @@
         });
 
         await stakeTx.wait();
-        
+        console.log("Approvazione completata");
         alert("Stake eseguito!");
       } catch (e) {
         console.error("Errore durante lo stake:", e);
