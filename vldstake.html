@@ -167,9 +167,14 @@
           const approveTx = await tokenContract.approve(contractAddress, amountParsed);
           await approveTx.wait();
         }
+        const gasEstimate = await stakingContract.estimateGas.stake(amountParsed);
+        console.log("Gas stimato:", gasEstimate.toString());
 
-        const stakeTx = await stakingContract.stake(amountParsed);
+        const stakeTx = await stakingContract.stake(amountParsed, {
+          gasLimit: gasEstimate.mul(120).div(100)  // +20% margine
+        });
         await stakeTx.wait();
+        
         alert("Stake eseguito!");
       } catch (e) {
         console.error("Errore durante lo stake:", e);
