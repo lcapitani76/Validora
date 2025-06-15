@@ -59,7 +59,7 @@
   </style>
 </head>
 <body>
-  <h1>VLD Staking Interface</h1>
+  <h1>VLD Staking Interface 1.0</h1>
   <button id="connect">🔗 Connetti Wallet</button>
   <p id="account"></p>
   <p id="warning"></p>
@@ -170,11 +170,14 @@
           const approveTx = await tokenContract.approve(contractAddress, amountParsed);
           await approveTx.wait();
         }
+        let gasEstimate;
         try {
-          const gasEstimate = await stakingContract.estimateGas.stake(amountParsed);
+          gasEstimate = await stakingContract.estimateGas.stake(amountParsed);
           console.log("Gas stimato:", gasEstimate.toString());
       } catch (err) {
-          console.error("Estimate gas fallito:", err);
+            console.error("Estimate gas fallito:", err);
+            gasEstimate = ethers.BigNumber.from("200000");  // fallback di sicurezza
+            console.warn("Uso fallback gas limit:", gasEstimate.toString());
       }
 
         console.log("Gas stimato:", gasEstimate.toString());
