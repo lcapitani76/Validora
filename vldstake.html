@@ -174,8 +174,9 @@
         console.log("Gas stimato:", gasEstimate.toString());
 
         const stakeTx = await stakingContract.stake(amountParsed, {
-          gasLimit: gasEstimate.mul(120).div(100)  // +20% margine
+          gasLimit: 200000  // valore sicuro, puoi aumentare se serve
         });
+
         await stakeTx.wait();
         
         alert("Stake eseguito!");
