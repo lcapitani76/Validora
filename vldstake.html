@@ -59,7 +59,7 @@
   </style>
 </head>
 <body>
-  <h1>VLD Staking Interface 1.0</h1>
+  <h1>VLD Staking Interface 1.01</h1>
   <button id="connect">🔗 Connetti Wallet</button>
   <p id="account"></p>
   <p id="warning"></p>
@@ -161,6 +161,13 @@
       if (!amount || isNaN(amount)) return alert("Inserisci un importo valido");
 
       const amountParsed = ethers.utils.parseUnits(amount, tokenDecimals);
+      const walletBalance = await tokenContract.balanceOf(userAddress);
+      console.log("Saldo wallet:", walletBalance.toString());
+      if (walletBalance.lt(amountParsed)) {
+        alert("Saldo insufficiente per fare stake!");
+        return;
+      }
+
      
       try {
         console.log("Amount parsed:", amountParsed.toString());
