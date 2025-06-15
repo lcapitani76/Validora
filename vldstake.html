@@ -80,9 +80,9 @@
 
     document.getElementById("connect").onclick = async () => {
       if (window.ethereum) {
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
         await provider.send("eth_requestAccounts", []);
-        signer = await provider.getSigner();
+        signer = provider.getSigner();
 
         const address = await signer.getAddress();
         document.getElementById("account").innerText = `Wallet: ${address}`;
