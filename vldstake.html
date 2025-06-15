@@ -155,14 +155,17 @@
 
     document.getElementById("stake").onclick = async () => {
       if (!stakingContract || !tokenContract) return alert("Devi prima connettere il wallet!");
-
+      
       const amount = document.getElementById("amount").value;
+      
       if (!amount || isNaN(amount)) return alert("Inserisci un importo valido");
 
       const amountParsed = ethers.utils.parseUnits(amount, tokenDecimals);
-
+     
       try {
+        console.log("Amount parsed:", amountParsed.toString());
         const currentAllowance = await tokenContract.allowance(userAddress, contractAddress);
+        console.log("Allowance attuale:", currentAllowance.toString());
         if (currentAllowance.lt(amountParsed)) {
           const approveTx = await tokenContract.approve(contractAddress, amountParsed);
           await approveTx.wait();
