@@ -99,7 +99,7 @@
       if (!amount || isNaN(amount)) return alert("Inserisci un importo valido");
 
       const decimals = 18; // Assumiamo che VLD abbia 18 decimali
-      const amountParsed = ethers.parseUnits(amount, decimals);
+      const amountParsed = ethers.utils.parseUnits(amount, decimals);
 
       try {
         const tx = await stakingContract.stake(amountParsed);
