@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -68,6 +69,8 @@
     <input type="number" id="amount" placeholder="Quantità VLD" />
     <button id="stake">Stake</button>
     <p class="note">⏳ Periodo minimo di blocco: 30 giorni</p>
+    <p id="user-balance" class="note"></p>
+    <p id="user-staked" class="note"></p>
   </div>
 
   <div class="section">
@@ -87,19 +90,22 @@
     const abi = [
       "function stake(uint256 amount) public",
       "function claimReward() public",
-      "function unstake() public"
+      "function unstake() public",
+      "function stakes(address) view returns (uint256 amount, uint256 startTime, uint256 lastClaim)"
     ];
 
     const tokenAbi = [
       "function approve(address spender, uint256 amount) public returns (bool)",
       "function balanceOf(address account) view returns (uint256)",
-      "function allowance(address owner, address spender) view returns (uint256)"
+      "function allowance(address owner, address spender) view returns (uint256)",
+      "function decimals() view returns (uint8)"
     ];
 
     let signer;
     let userAddress;
     let stakingContract;
     let tokenContract;
+    let tokenDecimals = 18;
 
     document.getElementById("connect").onclick = async () => {
       try {
@@ -114,6 +120,13 @@
           stakingContract = new ethers.Contract(contractAddress, abi, signer);
           tokenContract = new ethers.Contract(tokenAddress, tokenAbi, signer);
 
+          try {
+            tokenDecimals = await tokenContract.decimals();
+          } catch (err) {
+            console.warn("Impossibile leggere i decimali del token, uso fallback a 18");
+            tokenDecimals = 18;
+          }
+
           const balance = await tokenContract.balanceOf(contractAddress);
           if (balance.eq(0)) {
             document.getElementById("warning").innerText = "⚠️ Il contratto non contiene VLD per i reward. Lo stake fallirà finché non viene finanziato.";
@@ -121,7 +134,16 @@
             document.getElementById("warning").innerText = "";
           }
 
-          alert("Wallet connesso!");
+          const userBalance = await tokenContract.balanceOf(userAddress);
+          document.getElementById("user-balance").innerText = `Saldo VLD: ${ethers.utils.formatUnits(userBalance, tokenDecimals)}`;
+
+          try {
+            const stakeInfo = await stakingContract.stakes(userAddress);
+            document.getElementById("user-staked").innerText = `In staking: ${ethers.utils.formatUnits(stakeInfo.amount, tokenDecimals)} VLD`;
+          } catch {
+            document.getElementById("user-staked").innerText = "In staking: 0 VLD";
+          }
+
         } else {
           alert("Installa Metamask!");
         }
@@ -137,7 +159,7 @@
       const amount = document.getElementById("amount").value;
       if (!amount || isNaN(amount)) return alert("Inserisci un importo valido");
 
-      const amountParsed = ethers.utils.parseUnits(amount, 18);
+      const amountParsed = ethers.utils.parseUnits(amount, tokenDecimals);
 
       try {
         const currentAllowance = await tokenContract.allowance(userAddress, contractAddress);
