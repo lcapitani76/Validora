@@ -44,6 +44,11 @@
       font-style: italic;
       color: #94a3b8;
     }
+    .note {
+      color: #facc15;
+      font-size: 0.95rem;
+      margin-top: 0.5rem;
+    }
   </style>
 </head>
 <body>
@@ -55,6 +60,7 @@
     <h3>🪙 Fai stake dei tuoi VLD</h3>
     <input type="number" id="amount" placeholder="Quantità VLD" />
     <button id="stake">Stake</button>
+    <p class="note">⏳ Periodo minimo di blocco: 30 giorni</p>
   </div>
 
   <div class="section">
@@ -79,22 +85,30 @@
     let stakingContract;
 
     document.getElementById("connect").onclick = async () => {
-      if (window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        signer = provider.getSigner();
+      try {
+        if (window.ethereum) {
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          await provider.send("eth_requestAccounts", []);
+          signer = provider.getSigner();
 
-        const address = await signer.getAddress();
-        document.getElementById("account").innerText = `Wallet: ${address}`;
+          const address = await signer.getAddress();
+          document.getElementById("account").innerText = `Wallet: ${address}`;
 
-        stakingContract = new ethers.Contract(contractAddress, abi, signer);
-        alert("Wallet connesso!");
-      } else {
-        alert("Installa Metamask!");
+          stakingContract = new ethers.Contract(contractAddress, abi, signer);
+          console.log("Contratto staking caricato:", stakingContract);
+          alert("Wallet connesso!");
+        } else {
+          alert("Installa Metamask!");
+        }
+      } catch (error) {
+        console.error("Errore nella connessione wallet:", error);
+        alert("Errore nella connessione al wallet.");
       }
     };
 
     document.getElementById("stake").onclick = async () => {
+      if (!stakingContract) return alert("Devi prima connettere il wallet!");
+
       const amount = document.getElementById("amount").value;
       if (!amount || isNaN(amount)) return alert("Inserisci un importo valido");
 
@@ -106,29 +120,31 @@
         await tx.wait();
         alert("Stake eseguito!");
       } catch (e) {
-        console.error(e);
+        console.error("Errore durante lo stake:", e);
         alert("Errore durante lo stake");
       }
     };
 
     document.getElementById("claim").onclick = async () => {
+      if (!stakingContract) return alert("Wallet non connesso");
       try {
         const tx = await stakingContract.claimReward();
         await tx.wait();
         alert("Reward ricevuto!");
       } catch (e) {
-        console.error(e);
+        console.error("Errore durante il claim:", e);
         alert("Errore durante il claim");
       }
     };
 
     document.getElementById("unstake").onclick = async () => {
+      if (!stakingContract) return alert("Wallet non connesso");
       try {
         const tx = await stakingContract.unstake();
         await tx.wait();
         alert("Unstake completato!");
       } catch (e) {
-        console.error(e);
+        console.error("Errore durante l'unstake:", e);
         alert("Errore durante l'unstake");
       }
     };
