@@ -49,12 +49,19 @@
       font-size: 0.95rem;
       margin-top: 0.5rem;
     }
+    #warning {
+      color: #f87171;
+      font-size: 1rem;
+      margin-top: 1rem;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
   <h1>VLD Staking Interface</h1>
   <button id="connect">🔗 Connetti Wallet</button>
   <p id="account"></p>
+  <p id="warning"></p>
 
   <div class="section">
     <h3>🪙 Approva il contratto</h3>
@@ -90,7 +97,8 @@
     ];
 
     const tokenAbi = [
-      "function approve(address spender, uint256 amount) public returns (bool)"
+      "function approve(address spender, uint256 amount) public returns (bool)",
+      "function balanceOf(address account) view returns (uint256)"
     ];
 
     let signer;
@@ -109,6 +117,14 @@
 
           stakingContract = new ethers.Contract(contractAddress, abi, signer);
           tokenContract = new ethers.Contract(tokenAddress, tokenAbi, signer);
+
+          const balance = await tokenContract.balanceOf(contractAddress);
+          if (balance.eq(0)) {
+            document.getElementById("warning").innerText = "⚠️ Il contratto non contiene VLD per i reward. Lo stake fallirà finché non viene finanziato.";
+          } else {
+            document.getElementById("warning").innerText = "";
+          }
+
           alert("Wallet connesso!");
         } else {
           alert("Installa Metamask!");
