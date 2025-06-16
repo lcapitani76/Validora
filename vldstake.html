@@ -103,9 +103,6 @@
   </div>
 
   <script>
-    const contractAddress = "0x86F11913FA237C71917bEBBC05ca778e20Cd31A7";
-    const tokenAddress = "0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b";
-
     let currentLang = 'it';
     const messages = {
       it: {
@@ -116,11 +113,6 @@
         insufficient_balance: "Saldo insufficiente per fare stake!",
         stake_success: "Stake eseguito!",
         stake_error: "Errore durante lo stake",
-reward_earned: "🎯 Reward maturata: {amount} VLD",
-        no_reward: "🎯 Nessuna reward maturata al momento.",
-        unstake_date: "🔒 Unstake disponibile dal: {date}",
-        unstake_now: "✅ Puoi fare unstake ora.",
-        warning_no_fund: "⚠️ Il contratto non contiene VLD per i reward. Lo stake fallirà finché non viene finanziato.",,
         wallet_required: "Wallet non connesso",
         claim_success: "Reward ricevuto!",
         claim_error: "Errore durante il claim",
@@ -135,11 +127,6 @@ reward_earned: "🎯 Reward maturata: {amount} VLD",
         insufficient_balance: "Insufficient balance to stake!",
         stake_success: "Stake completed!",
         stake_error: "Error during staking",
-reward_earned: "🎯 Reward earned: {amount} VLD",
-        no_reward: "🎯 No reward earned yet.",
-        unstake_date: "🔒 Unstake available from: {date}",
-        unstake_now: "✅ You can unstake now.",
-        warning_no_fund: "⚠️ The contract does not contain VLD for rewards. Staking will fail until it is funded.",,
         wallet_required: "Wallet not connected",
         claim_success: "Reward claimed!",
         claim_error: "Error during reward claim",
@@ -190,172 +177,8 @@ reward_earned: "🎯 Reward earned: {amount} VLD",
         }
       });
     }
+
     setLang("it");
-        const abi = [
-      "function stake(uint256 amount) public",
-      "function claimReward() public",
-      "function unstake() public",
-      "function stakes(address) view returns (uint256 amount, uint256 startTime, uint256 lastClaim)",
-      "function totalStaked() view returns (uint256)"
-    ];
-
-    const tokenAbi = [
-      "function approve(address spender, uint256 amount) public returns (bool)",
-      "function balanceOf(address account) view returns (uint256)",
-      "function allowance(address owner, address spender) view returns (uint256)",
-      "function decimals() view returns (uint8)"
-    ];
-
-    let signer, userAddress, stakingContract, tokenContract, tokenDecimals = 18;
-
-    async function refreshUserData() {
-      try {
-        const userBalance = await tokenContract.balanceOf(userAddress);
-        document.getElementById("user-balance").innerText =
-          `Saldo VLD: ${ethers.utils.formatUnits(userBalance, tokenDecimals)}`;
-
-        const stakeInfo = await stakingContract.stakes(userAddress);
-        document.getElementById("user-staked").innerText =
-          `In staking: ${ethers.utils.formatUnits(stakeInfo.amount, tokenDecimals)} VLD`;
-
-        const currentBlock = await signer.provider.getBlock("latest");
-        const now = currentBlock.timestamp;
-        const elapsedDays = Math.floor((now - stakeInfo.lastClaim.toNumber()) / 86400);
-        const rewardOutput = document.getElementById("estimated-reward");
-
-        if (!stakeInfo.amount.isZero()) {
-          const totalStaked = await stakingContract.totalStaked();
-          const rewardRatePerDay = 13698;
-
-          const estimated = stakeInfo.amount
-            .mul(rewardRatePerDay)
-            .mul(elapsedDays)
-            .div(totalStaked);
-
-          if (estimated.gt(0)) {
-            rewardOutput.innerText = messages[currentLang].reward_earned.replace("{amount}", ethers.utils.formatUnits(estimated, tokenDecimals));
-          } else {
-            rewardOutput.innerText = messages[currentLang].no_reward;
-          }
-        } else {
-          rewardOutput.innerText = "";
-        }
-
-        // Blocco/visualizzazione data unstake
-        const unstakeButton = document.getElementById("unstake");
-        const unstakeInfo = document.getElementById("unstake-info");
-
-        const stakeStart = stakeInfo.startTime.toNumber();
-        const unlockTime = stakeStart + (30 * 86400); // 30 giorni
-
-        if (stakeInfo.amount.isZero()) {
-          unstakeInfo.innerText = "";
-          unstakeButton.disabled = true;
-        } else if (now < unlockTime) {
-          const unlockDate = new Date(unlockTime * 1000);
-          unstakeInfo.innerText = messages[currentLang].unstake_date.replace("{date}", unlockDate.toLocaleDateString());
-          unstakeButton.disabled = true;
-        } else {
-          unstakeInfo.innerText = messages[currentLang].unstake_now;
-          unstakeButton.disabled = false;
-        }
-
-      } catch (err) {
-        console.error("Errore in refreshUserData:", err);
-      }
-    }
-
-    document.getElementById("connect").onclick = async () => {
-      try {
-        if (!window.ethereum) return alert(messages[currentLang].metamask);
-
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        signer = provider.getSigner();
-        userAddress = await signer.getAddress();
-
-        document.getElementById("account").innerText = `Wallet: ${userAddress}`;
-
-        stakingContract = new ethers.Contract(contractAddress, abi, signer);
-        tokenContract = new ethers.Contract(tokenAddress, tokenAbi, signer);
-
-        try {
-          tokenDecimals = await tokenContract.decimals();
-        } catch {
-          tokenDecimals = 18;
-        }
-
-        const rewardFund = await tokenContract.balanceOf(contractAddress);
-        document.getElementById("warning").innerText = rewardFund.eq(0)
-          ? messages[currentLang].warning_no_fund
-          : "";
-
-        await refreshUserData();
-      } catch (error) {
-        console.error("Errore nella connessione wallet:", error);
-        alert(messages[currentLang].wallet_connect_error);
-      }
-    };
-
-    document.getElementById("stake").onclick = async () => {
-      if (!stakingContract || !tokenContract) return alert(messages[currentLang].connect_first);
-      
-      const amount = document.getElementById("amount").value;
-      if (!amount || isNaN(amount)) return alert(messages[currentLang].invalid_amount);
-
-      const amountParsed = ethers.utils.parseUnits(amount, tokenDecimals);
-      const walletBalance = await tokenContract.balanceOf(userAddress);
-      if (walletBalance.lt(amountParsed)) return alert(messages[currentLang].insufficient_balance);
-
-      try {
-        const currentAllowance = await tokenContract.allowance(userAddress, contractAddress);
-        if (currentAllowance.lt(amountParsed)) {
-          const approveTx = await tokenContract.approve(contractAddress, amountParsed);
-          await approveTx.wait();
-        }
-
-        let gasEstimate;
-        try {
-          gasEstimate = await stakingContract.estimateGas.stake(amountParsed);
-        } catch {
-          gasEstimate = ethers.BigNumber.from("200000");
-        }
-
-        const stakeTx = await stakingContract.stake(amountParsed, { gasLimit: gasEstimate });
-        await stakeTx.wait();
-        alert(messages[currentLang].stake_success);
-        await refreshUserData();
-      } catch (e) {
-        console.error("Errore durante lo stake:", e);
-        alert(messages[currentLang].stake_error);
-      }
-    };
-
-    document.getElementById("claim").onclick = async () => {
-      if (!stakingContract) return alert(messages[currentLang].wallet_required);
-      try {
-        const tx = await stakingContract.claimReward();
-        await tx.wait();
-        alert(messages[currentLang].claim_success);
-        await refreshUserData();
-      } catch (e) {
-        console.error("Errore durante il claim:", e);
-        alert(messages[currentLang].claim_error);
-      }
-    };
-
-    document.getElementById("unstake").onclick = async () => {
-      if (!stakingContract) return alert(messages[currentLang].wallet_required);
-      try {
-        const tx = await stakingContract.unstake();
-        await tx.wait();
-        alert(messages[currentLang].unstake_success);
-        await refreshUserData();
-      } catch (e) {
-        console.error("Errore durante l'unstake:", e);
-        alert(messages[currentLang].unstake_error);
-      }
-    };
   </script>
 </body>
 </html>
