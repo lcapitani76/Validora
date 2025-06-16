@@ -1,11 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>VLD Staking</title>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <style>
     body {
@@ -59,7 +58,7 @@
   </style>
 </head>
 <body>
-  <h1>VLD Staking Interface 1.02</h1>
+  <h1>VLD Staking Interface 1.03</h1>
   <button id="connect">🔗 Connetti Wallet</button>
   <p id="account"></p>
   <p id="warning"></p>
@@ -76,6 +75,7 @@
   <div class="section">
     <h3>🎁 Claim reward</h3>
     <button id="claim">Claim</button>
+    <p id="estimated-reward" class="note"></p>
   </div>
 
   <div class="section">
@@ -91,7 +91,8 @@
       "function stake(uint256 amount) public",
       "function claimReward() public",
       "function unstake() public",
-      "function stakes(address) view returns (uint256 amount, uint256 startTime, uint256 lastClaim)"
+      "function stakes(address) view returns (uint256 amount, uint256 startTime, uint256 lastClaim)",
+      "function totalStaked() view returns (uint256)"
     ];
 
     const tokenAbi = [
@@ -101,52 +102,67 @@
       "function decimals() view returns (uint8)"
     ];
 
-    let signer;
-    let userAddress;
-    let stakingContract;
-    let tokenContract;
-    let tokenDecimals = 18;
+    let signer, userAddress, stakingContract, tokenContract, tokenDecimals = 18;
+
+    async function refreshUserData() {
+      try {
+        const userBalance = await tokenContract.balanceOf(userAddress);
+        document.getElementById("user-balance").innerText =
+          `Saldo VLD: ${ethers.utils.formatUnits(userBalance, tokenDecimals)}`;
+
+        const stakeInfo = await stakingContract.stakes(userAddress);
+        document.getElementById("user-staked").innerText =
+          `In staking: ${ethers.utils.formatUnits(stakeInfo.amount, tokenDecimals)} VLD`;
+
+        const currentBlock = await signer.provider.getBlock("latest");
+        const now = currentBlock.timestamp;
+        const elapsedDays = Math.floor((now - stakeInfo.lastClaim.toNumber()) / 86400);
+
+        if (elapsedDays > 0 && !stakeInfo.amount.isZero()) {
+          const totalStaked = await stakingContract.totalStaked();
+          const rewardRatePerDay = 13698;
+
+          const estimated = stakeInfo.amount
+            .mul(rewardRatePerDay)
+            .mul(elapsedDays)
+            .div(totalStaked);
+
+          document.getElementById("estimated-reward").innerText =
+            `🎯 Reward stimata: ${ethers.utils.formatUnits(estimated, tokenDecimals)} VLD`;
+        } else {
+          document.getElementById("estimated-reward").innerText = "";
+        }
+      } catch (err) {
+        console.error("Errore in refreshUserData:", err);
+      }
+    }
 
     document.getElementById("connect").onclick = async () => {
       try {
-        if (window.ethereum) {
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
-          await provider.send("eth_requestAccounts", []);
-          signer = provider.getSigner();
+        if (!window.ethereum) return alert("Installa Metamask!");
 
-          userAddress = await signer.getAddress();
-          document.getElementById("account").innerText = `Wallet: ${userAddress}`;
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        userAddress = await signer.getAddress();
 
-          stakingContract = new ethers.Contract(contractAddress, abi, signer);
-          tokenContract = new ethers.Contract(tokenAddress, tokenAbi, signer);
+        document.getElementById("account").innerText = `Wallet: ${userAddress}`;
 
-          try {
-            tokenDecimals = await tokenContract.decimals();
-          } catch (err) {
-            console.warn("Impossibile leggere i decimali del token, uso fallback a 18");
-            tokenDecimals = 18;
-          }
+        stakingContract = new ethers.Contract(contractAddress, abi, signer);
+        tokenContract = new ethers.Contract(tokenAddress, tokenAbi, signer);
 
-          const balance = await tokenContract.balanceOf(contractAddress);
-          if (balance.eq(0)) {
-            document.getElementById("warning").innerText = "⚠️ Il contratto non contiene VLD per i reward. Lo stake fallirà finché non viene finanziato.";
-          } else {
-            document.getElementById("warning").innerText = "";
-          }
-
-          const userBalance = await tokenContract.balanceOf(userAddress);
-          document.getElementById("user-balance").innerText = `Saldo VLD: ${ethers.utils.formatUnits(userBalance, tokenDecimals)}`;
-
-          try {
-            const stakeInfo = await stakingContract.stakes(userAddress);
-            document.getElementById("user-staked").innerText = `In staking: ${ethers.utils.formatUnits(stakeInfo.amount, tokenDecimals)} VLD`;
-          } catch {
-            document.getElementById("user-staked").innerText = "In staking: 0 VLD";
-          }
-
-        } else {
-          alert("Installa Metamask!");
+        try {
+          tokenDecimals = await tokenContract.decimals();
+        } catch {
+          tokenDecimals = 18;
         }
+
+        const rewardFund = await tokenContract.balanceOf(contractAddress);
+        document.getElementById("warning").innerText = rewardFund.eq(0)
+          ? "⚠️ Il contratto non contiene VLD per i reward. Lo stake fallirà finché non viene finanziato."
+          : "";
+
+        await refreshUserData();
       } catch (error) {
         console.error("Errore nella connessione wallet:", error);
         alert("Errore nella connessione al wallet.");
@@ -157,45 +173,30 @@
       if (!stakingContract || !tokenContract) return alert("Devi prima connettere il wallet!");
       
       const amount = document.getElementById("amount").value;
-      
       if (!amount || isNaN(amount)) return alert("Inserisci un importo valido");
 
       const amountParsed = ethers.utils.parseUnits(amount, tokenDecimals);
       const walletBalance = await tokenContract.balanceOf(userAddress);
-      console.log("Saldo wallet:", walletBalance.toString());
-      if (walletBalance.lt(amountParsed)) {
-        alert("Saldo insufficiente per fare stake!");
-        return;
-      }
+      if (walletBalance.lt(amountParsed)) return alert("Saldo insufficiente per fare stake!");
 
-     
       try {
-        console.log("Amount parsed:", amountParsed.toString());
         const currentAllowance = await tokenContract.allowance(userAddress, contractAddress);
-        console.log("Allowance attuale:", currentAllowance.toString());
         if (currentAllowance.lt(amountParsed)) {
           const approveTx = await tokenContract.approve(contractAddress, amountParsed);
           await approveTx.wait();
         }
+
         let gasEstimate;
         try {
           gasEstimate = await stakingContract.estimateGas.stake(amountParsed);
-          console.log("Gas stimato:", gasEstimate.toString());
-      } catch (err) {
-            console.error("Estimate gas fallito:", err);
-            gasEstimate = ethers.BigNumber.from("200000");  // fallback di sicurezza
-            console.warn("Uso fallback gas limit:", gasEstimate.toString());
-      }
+        } catch {
+          gasEstimate = ethers.BigNumber.from("200000");
+        }
 
-        console.log("Gas stimato:", gasEstimate.toString());
-
-        const stakeTx = await stakingContract.stake(amountParsed, {
-          gasLimit: 200000  // valore sicuro, puoi aumentare se serve
-        });
-
+        const stakeTx = await stakingContract.stake(amountParsed, { gasLimit: gasEstimate });
         await stakeTx.wait();
-        console.log("Approvazione completata");
         alert("Stake eseguito!");
+        await refreshUserData();
       } catch (e) {
         console.error("Errore durante lo stake:", e);
         alert("Errore durante lo stake");
@@ -208,6 +209,7 @@
         const tx = await stakingContract.claimReward();
         await tx.wait();
         alert("Reward ricevuto!");
+        await refreshUserData();
       } catch (e) {
         console.error("Errore durante il claim:", e);
         alert("Errore durante il claim");
@@ -220,6 +222,7 @@
         const tx = await stakingContract.unstake();
         await tx.wait();
         alert("Unstake completato!");
+        await refreshUserData();
       } catch (e) {
         console.error("Errore durante l'unstake:", e);
         alert("Errore durante l'unstake");
