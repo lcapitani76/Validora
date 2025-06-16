@@ -58,7 +58,7 @@
   </style>
 </head>
 <body>
-  <h1>VLD Staking Interface 1.04</h1>
+  <h1>VLD Staking Interface 1.05</h1>
   <button id="connect">🔗 Connetti Wallet</button>
   <p id="account"></p>
   <p id="warning"></p>
@@ -80,7 +80,8 @@
 
   <div class="section">
     <h3>🔓 Unstake</h3>
-    <button id="unstake">Unstake</button>
+    <button id="unstake" disabled>Unstake</button>
+    <p id="unstake-info" class="note"></p>
   </div>
 
   <script>
@@ -133,9 +134,28 @@
           } else {
             rewardOutput.innerText = `🎯 Nessuna reward maturata al momento.`;
           }
-          } else {
-            rewardOutput.innerText = ""; // niente staking attivo
-          }
+        } else {
+          rewardOutput.innerText = "";
+        }
+
+        // Blocco/visualizzazione data unstake
+        const unstakeButton = document.getElementById("unstake");
+        const unstakeInfo = document.getElementById("unstake-info");
+
+        const stakeStart = stakeInfo.startTime.toNumber();
+        const unlockTime = stakeStart + (30 * 86400); // 30 giorni
+
+        if (stakeInfo.amount.isZero()) {
+          unstakeInfo.innerText = "";
+          unstakeButton.disabled = true;
+        } else if (now < unlockTime) {
+          const unlockDate = new Date(unlockTime * 1000);
+          unstakeInfo.innerText = `🔒 Unstake disponibile dal: ${unlockDate.toLocaleDateString()}`;
+          unstakeButton.disabled = true;
+        } else {
+          unstakeInfo.innerText = `✅ Puoi fare unstake ora.`;
+          unstakeButton.disabled = false;
+        }
 
       } catch (err) {
         console.error("Errore in refreshUserData:", err);
