@@ -58,7 +58,7 @@
   </style>
 </head>
 <body>
-  <h1>VLD Staking Interface 1.03</h1>
+  <h1>VLD Staking Interface 1.04</h1>
   <button id="connect">🔗 Connetti Wallet</button>
   <p id="account"></p>
   <p id="warning"></p>
@@ -117,8 +117,9 @@
         const currentBlock = await signer.provider.getBlock("latest");
         const now = currentBlock.timestamp;
         const elapsedDays = Math.floor((now - stakeInfo.lastClaim.toNumber()) / 86400);
+        const rewardOutput = document.getElementById("estimated-reward");
 
-        if (elapsedDays > 0 && !stakeInfo.amount.isZero()) {
+        if (!stakeInfo.amount.isZero()) {
           const totalStaked = await stakingContract.totalStaked();
           const rewardRatePerDay = 13698;
 
@@ -127,11 +128,15 @@
             .mul(elapsedDays)
             .div(totalStaked);
 
-          document.getElementById("estimated-reward").innerText =
-            `🎯 Reward stimata: ${ethers.utils.formatUnits(estimated, tokenDecimals)} VLD`;
-        } else {
-          document.getElementById("estimated-reward").innerText = "";
-        }
+          if (estimated.gt(0)) {
+            rewardOutput.innerText = `🎯 Reward maturata: ${ethers.utils.formatUnits(estimated, tokenDecimals)} VLD`;
+          } else {
+            rewardOutput.innerText = `🎯 Nessuna reward maturata al momento.`;
+          }
+          } else {
+            rewardOutput.innerText = ""; // niente staking attivo
+          }
+
       } catch (err) {
         console.error("Errore in refreshUserData:", err);
       }
