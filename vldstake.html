@@ -15,20 +15,6 @@
       padding: 2rem;
       text-align: center;
     }
-    .lang-toggle {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-    }
-    .lang-toggle button {
-      background: #3b82f6;
-      color: white;
-      border: none;
-      padding: 0.3rem 0.6rem;
-      margin-left: 0.5rem;
-      border-radius: 5px;
-      cursor: pointer;
-    }
     h1 {
       font-size: 2.5rem;
       margin-bottom: 1rem;
@@ -72,113 +58,201 @@
   </style>
 </head>
 <body>
-  <div class="lang-toggle">
-    🌐 <button onclick="setLang('it')">ITA</button> <button onclick="setLang('en')">ENG</button>
-  </div>
-
-  <h1 data-i18n="title">VLD Staking Interface 1.05</h1>
-  <button id="connect" data-i18n="connect">🔗 Connetti Wallet</button>
+  <h1>VLD Staking Interface 1.05</h1>
+  <button id="connect">🔗 Connetti Wallet</button>
   <p id="account"></p>
   <p id="warning"></p>
 
   <div class="section">
-    <h3 data-i18n="stake_title">🪙 Fai stake dei tuoi VLD</h3>
-    <input type="number" id="amount" data-i18n-placeholder="amount_placeholder" placeholder="Quantità VLD" />
-    <button id="stake" data-i18n="stake">Stake</button>
-    <p class="note" data-i18n="stake_note">⏳ Periodo minimo di blocco: 30 giorni</p>
+    <h3>🪙 Fai stake dei tuoi VLD</h3>
+    <input type="number" id="amount" placeholder="Quantità VLD" />
+    <button id="stake">Stake</button>
+    <p class="note">⏳ Periodo minimo di blocco: 30 giorni</p>
     <p id="user-balance" class="note"></p>
     <p id="user-staked" class="note"></p>
   </div>
 
   <div class="section">
-    <h3 data-i18n="claim_title">🎁 Claim reward</h3>
-    <button id="claim" data-i18n="claim">Claim</button>
+    <h3>🎁 Claim reward</h3>
+    <button id="claim">Claim</button>
     <p id="estimated-reward" class="note"></p>
   </div>
 
   <div class="section">
-    <h3 data-i18n="unstake_title">🔓 Unstake</h3>
-    <button id="unstake" disabled data-i18n="unstake">Unstake</button>
+    <h3>🔓 Unstake</h3>
+    <button id="unstake" disabled>Unstake</button>
     <p id="unstake-info" class="note"></p>
   </div>
 
   <script>
-    let currentLang = 'it';
-    const messages = {
-      it: {
-        metamask: "Installa Metamask!",
-        wallet_connect_error: "Errore nella connessione al wallet.",
-        connect_first: "Devi prima connettere il wallet!",
-        invalid_amount: "Inserisci un importo valido",
-        insufficient_balance: "Saldo insufficiente per fare stake!",
-        stake_success: "Stake eseguito!",
-        stake_error: "Errore durante lo stake",
-        wallet_required: "Wallet non connesso",
-        claim_success: "Reward ricevuto!",
-        claim_error: "Errore durante il claim",
-        unstake_success: "Unstake completato!",
-        unstake_error: "Errore durante l'unstake"
-      },
-      en: {
-        metamask: "Please install Metamask!",
-        wallet_connect_error: "Error connecting to wallet.",
-        connect_first: "You need to connect your wallet first!",
-        invalid_amount: "Enter a valid amount",
-        insufficient_balance: "Insufficient balance to stake!",
-        stake_success: "Stake completed!",
-        stake_error: "Error during staking",
-        wallet_required: "Wallet not connected",
-        claim_success: "Reward claimed!",
-        claim_error: "Error during reward claim",
-        unstake_success: "Unstake completed!",
-        unstake_error: "Error during unstake"
-      }
-    };
+    const contractAddress = "0x86F11913FA237C71917bEBBC05ca778e20Cd31A7";
+    const tokenAddress = "0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b";
 
-    const translations = {
-      it: {
-        title: "VLD Staking Interface 1.05",
-        connect: "🔗 Connetti Wallet",
-        stake_title: "🪙 Fai stake dei tuoi VLD",
-        amount_placeholder: "Quantità VLD",
-        stake: "Stake",
-        stake_note: "⏳ Periodo minimo di blocco: 30 giorni",
-        claim_title: "🎁 Claim reward",
-        claim: "Claim",
-        unstake_title: "🔓 Unstake",
-        unstake: "Unstake"
-      },
-      en: {
-        title: "VLD Staking Interface 1.05",
-        connect: "🔗 Connect Wallet",
-        stake_title: "🪙 Stake your VLD",
-        amount_placeholder: "Amount VLD",
-        stake: "Stake",
-        stake_note: "⏳ Minimum lock period: 30 days",
-        claim_title: "🎁 Claim reward",
-        claim: "Claim",
-        unstake_title: "🔓 Unstake",
-        unstake: "Unstake"
-      }
-    };
+    const abi = [
+      "function stake(uint256 amount) public",
+      "function claimReward() public",
+      "function unstake() public",
+      "function stakes(address) view returns (uint256 amount, uint256 startTime, uint256 lastClaim)",
+      "function totalStaked() view returns (uint256)"
+    ];
 
-    function setLang(lang) {
-      currentLang = lang;
-      document.querySelectorAll("[data-i18n]").forEach(el => {
-        const key = el.getAttribute("data-i18n");
-        if (translations[lang][key]) {
-          el.textContent = translations[lang][key];
+    const tokenAbi = [
+      "function approve(address spender, uint256 amount) public returns (bool)",
+      "function balanceOf(address account) view returns (uint256)",
+      "function allowance(address owner, address spender) view returns (uint256)",
+      "function decimals() view returns (uint8)"
+    ];
+
+    let signer, userAddress, stakingContract, tokenContract, tokenDecimals = 18;
+
+    async function refreshUserData() {
+      try {
+        const userBalance = await tokenContract.balanceOf(userAddress);
+        document.getElementById("user-balance").innerText =
+          `Saldo VLD: ${ethers.utils.formatUnits(userBalance, tokenDecimals)}`;
+
+        const stakeInfo = await stakingContract.stakes(userAddress);
+        document.getElementById("user-staked").innerText =
+          `In staking: ${ethers.utils.formatUnits(stakeInfo.amount, tokenDecimals)} VLD`;
+
+        const currentBlock = await signer.provider.getBlock("latest");
+        const now = currentBlock.timestamp;
+        const elapsedDays = Math.floor((now - stakeInfo.lastClaim.toNumber()) / 86400);
+        const rewardOutput = document.getElementById("estimated-reward");
+
+        if (!stakeInfo.amount.isZero()) {
+          const totalStaked = await stakingContract.totalStaked();
+          const rewardRatePerDay = 13698;
+
+          const estimated = stakeInfo.amount
+            .mul(rewardRatePerDay)
+            .mul(elapsedDays)
+            .div(totalStaked);
+
+          if (estimated.gt(0)) {
+            rewardOutput.innerText = `🎯 Reward maturata: ${ethers.utils.formatUnits(estimated, tokenDecimals)} VLD`;
+          } else {
+            rewardOutput.innerText = `🎯 Nessuna reward maturata al momento.`;
+          }
+        } else {
+          rewardOutput.innerText = "";
         }
-      });
-      document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
-        const key = el.getAttribute("data-i18n-placeholder");
-        if (translations[lang][key]) {
-          el.setAttribute("placeholder", translations[lang][key]);
+
+        // Blocco/visualizzazione data unstake
+        const unstakeButton = document.getElementById("unstake");
+        const unstakeInfo = document.getElementById("unstake-info");
+
+        const stakeStart = stakeInfo.startTime.toNumber();
+        const unlockTime = stakeStart + (30 * 86400); // 30 giorni
+
+        if (stakeInfo.amount.isZero()) {
+          unstakeInfo.innerText = "";
+          unstakeButton.disabled = true;
+        } else if (now < unlockTime) {
+          const unlockDate = new Date(unlockTime * 1000);
+          unstakeInfo.innerText = `🔒 Unstake disponibile dal: ${unlockDate.toLocaleDateString()}`;
+          unstakeButton.disabled = true;
+        } else {
+          unstakeInfo.innerText = `✅ Puoi fare unstake ora.`;
+          unstakeButton.disabled = false;
         }
-      });
+
+      } catch (err) {
+        console.error("Errore in refreshUserData:", err);
+      }
     }
 
-    setLang("it");
+    document.getElementById("connect").onclick = async () => {
+      try {
+        if (!window.ethereum) return alert("Installa Metamask!");
+
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        userAddress = await signer.getAddress();
+
+        document.getElementById("account").innerText = `Wallet: ${userAddress}`;
+
+        stakingContract = new ethers.Contract(contractAddress, abi, signer);
+        tokenContract = new ethers.Contract(tokenAddress, tokenAbi, signer);
+
+        try {
+          tokenDecimals = await tokenContract.decimals();
+        } catch {
+          tokenDecimals = 18;
+        }
+
+        const rewardFund = await tokenContract.balanceOf(contractAddress);
+        document.getElementById("warning").innerText = rewardFund.eq(0)
+          ? "⚠️ Il contratto non contiene VLD per i reward. Lo stake fallirà finché non viene finanziato."
+          : "";
+
+        await refreshUserData();
+      } catch (error) {
+        console.error("Errore nella connessione wallet:", error);
+        alert("Errore nella connessione al wallet.");
+      }
+    };
+
+    document.getElementById("stake").onclick = async () => {
+      if (!stakingContract || !tokenContract) return alert("Devi prima connettere il wallet!");
+      
+      const amount = document.getElementById("amount").value;
+      if (!amount || isNaN(amount)) return alert("Inserisci un importo valido");
+
+      const amountParsed = ethers.utils.parseUnits(amount, tokenDecimals);
+      const walletBalance = await tokenContract.balanceOf(userAddress);
+      if (walletBalance.lt(amountParsed)) return alert("Saldo insufficiente per fare stake!");
+
+      try {
+        const currentAllowance = await tokenContract.allowance(userAddress, contractAddress);
+        if (currentAllowance.lt(amountParsed)) {
+          const approveTx = await tokenContract.approve(contractAddress, amountParsed);
+          await approveTx.wait();
+        }
+
+        let gasEstimate;
+        try {
+          gasEstimate = await stakingContract.estimateGas.stake(amountParsed);
+        } catch {
+          gasEstimate = ethers.BigNumber.from("200000");
+        }
+
+        const stakeTx = await stakingContract.stake(amountParsed, { gasLimit: gasEstimate });
+        await stakeTx.wait();
+        alert("Stake eseguito!");
+        await refreshUserData();
+      } catch (e) {
+        console.error("Errore durante lo stake:", e);
+        alert("Errore durante lo stake");
+      }
+    };
+
+    document.getElementById("claim").onclick = async () => {
+      if (!stakingContract) return alert("Wallet non connesso");
+      try {
+        const tx = await stakingContract.claimReward();
+        await tx.wait();
+        alert("Reward ricevuto!");
+        await refreshUserData();
+      } catch (e) {
+        console.error("Errore durante il claim:", e);
+        alert("Errore durante il claim");
+      }
+    };
+
+    document.getElementById("unstake").onclick = async () => {
+      if (!stakingContract) return alert("Wallet non connesso");
+      try {
+        const tx = await stakingContract.unstake();
+        await tx.wait();
+        alert("Unstake completato!");
+        await refreshUserData();
+      } catch (e) {
+        console.error("Errore durante l'unstake:", e);
+        alert("Errore durante l'unstake");
+      }
+    };
   </script>
 </body>
 </html>
