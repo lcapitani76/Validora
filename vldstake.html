@@ -1,12 +1,13 @@
 <!DOCTYPE html>
+
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>VLD Staking</title>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VLD Staking</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
     body {
       font-family: 'Roboto', sans-serif;
       background-color: #0b1120;
@@ -58,43 +59,34 @@
   </style>
 </head>
 <body>
-
-
 <div style="position: absolute; top: 1rem; right: 1rem; display: flex; gap: 0.5rem; align-items: center;">
   🌐
-  <button onclick="updateLanguage('it')" style="background-color:#3b82f6;color:white;border:none;padding:0.4rem 0.8rem;border-radius:6px;font-weight:bold;cursor:pointer;">ITA</button>
-  <button onclick="updateLanguage('en')" style="background-color:#3b82f6;color:white;border:none;padding:0.4rem 0.8rem;border-radius:6px;font-weight:bold;cursor:pointer;">ENG</button>
+  <button data-i18n="lang_ita" onclick="updateLanguage('it')" style="background-color:#3b82f6;color:white;border:none;padding:0.4rem 0.8rem;border-radius:6px;font-weight:bold;cursor:pointer;">ITA</button>
+<button data-i18n="lang_eng" onclick="updateLanguage('en')" style="background-color:#3b82f6;color:white;border:none;padding:0.4rem 0.8rem;border-radius:6px;font-weight:bold;cursor:pointer;">ENG</button>
 </div>
-
-    
-
-  <h1 data-i18n="title">VLD Staking Interface 1.1</h1>
-  <button id="connect" data-i18n="connect">🔗 Connetti Wallet</button>
-  <p id="account"></p>
-  <p id="warning"></p>
-
-  <div class="section">
-    <h3 data-i18n="stake_title">🪙 Fai stake dei tuoi VLD</h3>
-    <input type="number" id="amount" placeholder="Quantità VLD" />
-    <button id="stake" data-i18n="stake_button">Stake</button>
-    <p class="note" data-i18n="stake_note">⏳ Periodo minimo di blocco: 30 giorni</p>
-    <p id="user-balance" class="note"></p>
-    <p id="user-staked" class="note"></p>
-  </div>
-
-  <div class="section">
-    <h3 data-i18n="claim_title">🎁 Claim reward</h3>
-    <button id="claim" data-i18n="claim_button">Claim</button>
-    <p id="estimated-reward" class="note"></p>
-  </div>
-
-  <div class="section">
-    <h3 data-i18n="unstake_title">🔓 Unstake</h3>
-    <button id="unstake" disabled>Unstake</button>
-    <p id="unstake-info" class="note"></p>
-  </div>
-
-  <script>
+<h1 data-i18n="title">VLD Staking Interface 1.05</h1>
+<button data-i18n="connect" id="connect">🔗 Connetti Wallet</button>
+<p id="account"></p>
+<p id="warning"></p>
+<div class="section">
+<h3 data-i18n="stake_title">🪙 Fai stake dei tuoi VLD</h3>
+<input id="amount" placeholder="Quantità VLD" type="number"/>
+<button data-i18n="stake_button" id="stake">Stake</button>
+<p class="note" data-i18n="stake_note">⏳ Periodo minimo di blocco: 30 giorni</p>
+<p class="note" id="user-balance"></p>
+<p class="note" id="user-staked"></p>
+</div>
+<div class="section">
+<h3 data-i18n="claim_title">🎁 Claim reward</h3>
+<button data-i18n="claim_button" id="claim">Claim</button>
+<p class="note" id="estimated-reward"></p>
+</div>
+<div class="section">
+<h3 data-i18n="unstake_title">🔓 Unstake</h3>
+<button data-i18n="unstake_button" disabled="" id="unstake">Unstake</button>
+<p class="note" id="unstake-info"></p>
+</div>
+<script>
     const contractAddress = "0x0ebBF730752C8369bfd8d9A71eCB04120FFF5e9e";
     const tokenAddress = "0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b";
 
@@ -264,10 +256,12 @@
       }
     };
   </script>
-
 <script>
 const translations = {
   it: {
+    lang_ita: "ITA",
+    lang_eng: "ENG",
+    unstake_button: "Unstake",
     install_metamask: "Installa Metamask!",
 
     title: "Interfaccia VLD Staking 1.05",
@@ -296,6 +290,9 @@ const translations = {
     connect_first: "Devi prima connettere il wallet!"
   },
   en: {
+    lang_ita: "ITA",
+    lang_eng: "ENG",
+    unstake_button: "Unstake",
     install_metamask: "Install Metamask!",
 
     title: "VLD Staking Interface 1.05",
@@ -341,6 +338,5 @@ document.addEventListener("DOMContentLoaded", function () {
   updateLanguage(currentLang);
 });
 </script>
-
 </body>
 </html>
