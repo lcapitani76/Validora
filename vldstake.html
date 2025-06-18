@@ -58,28 +58,38 @@
   </style>
 </head>
 <body>
-  <h1>VLD Staking Interface 1.05</h1>
-  <button id="connect">🔗 Connetti Wallet</button>
+
+
+<div style="position: absolute; top: 1rem; right: 1rem; display: flex; gap: 0.5rem; align-items: center;">
+  🌐
+  <button onclick="updateLanguage('it')" style="background-color:#3b82f6;color:white;border:none;padding:0.4rem 0.8rem;border-radius:6px;font-weight:bold;cursor:pointer;">ITA</button>
+  <button onclick="updateLanguage('en')" style="background-color:#3b82f6;color:white;border:none;padding:0.4rem 0.8rem;border-radius:6px;font-weight:bold;cursor:pointer;">ENG</button>
+</div>
+
+    
+
+  <h1 data-i18n="title">VLD Staking Interface 1.05</h1>
+  <button id="connect" data-i18n="connect">🔗 Connetti Wallet</button>
   <p id="account"></p>
   <p id="warning"></p>
 
   <div class="section">
-    <h3>🪙 Fai stake dei tuoi VLD</h3>
+    <h3 data-i18n="stake_title">🪙 Fai stake dei tuoi VLD</h3>
     <input type="number" id="amount" placeholder="Quantità VLD" />
-    <button id="stake">Stake</button>
-    <p class="note">⏳ Periodo minimo di blocco: 30 giorni</p>
+    <button id="stake" data-i18n="stake_button">Stake</button>
+    <p class="note" data-i18n="stake_note">⏳ Periodo minimo di blocco: 30 giorni</p>
     <p id="user-balance" class="note"></p>
     <p id="user-staked" class="note"></p>
   </div>
 
   <div class="section">
-    <h3>🎁 Claim reward</h3>
-    <button id="claim">Claim</button>
+    <h3 data-i18n="claim_title">🎁 Claim reward</h3>
+    <button id="claim" data-i18n="claim_button">Claim</button>
     <p id="estimated-reward" class="note"></p>
   </div>
 
   <div class="section">
-    <h3>🔓 Unstake</h3>
+    <h3 data-i18n="unstake_title">🔓 Unstake</h3>
     <button id="unstake" disabled>Unstake</button>
     <p id="unstake-info" class="note"></p>
   </div>
@@ -254,5 +264,79 @@
       }
     };
   </script>
+
+<script>
+const translations = {
+  it: {
+    title: "Interfaccia VLD Staking 1.10",
+    connect: "🔗 Connetti Wallet",
+    stake_title: "🪙 Fai stake dei tuoi VLD",
+    stake_note: "⏳ Periodo minimo di blocco: 30 giorni",
+    stake_button: "Stake",
+    unstake_title: "🔓 Unstake",
+    unstake_now: "✅ Puoi fare unstake ora.",
+    unstake_locked: "🔒 Unstake disponibile dal:",
+    claim_title: "🎁 Claim reward",
+    claim_button: "Claim",
+    reward_ready: "🎯 Reward maturata:",
+    reward_none: "🎯 Nessuna reward maturata al momento.",
+    contract_warning: "⚠️ Il contratto non contiene VLD per i reward. Lo stake fallirà finché non viene finanziato.",
+    wallet_connected: "Wallet: ",
+    error_wallet: "Errore nella connessione al wallet.",
+    error_claim: "Errore durante il claim",
+    success_claim: "Reward ricevuto!",
+    error_unstake: "Errore durante l'unstake",
+    success_unstake: "Unstake completato!",
+    error_stake: "Errore durante lo stake",
+    success_stake: "Stake eseguito!",
+    invalid_amount: "Inserisci un importo valido",
+    insufficient_balance: "Saldo insufficiente per fare stake!",
+    connect_first: "Devi prima connettere il wallet!"
+  },
+  en: {
+    title: "VLD Staking Interface 1.05",
+    connect: "🔗 Connect Wallet",
+    stake_title: "🪙 Stake your VLD",
+    stake_note: "⏳ Minimum lock period: 30 days",
+    stake_button: "Stake",
+    unstake_title: "🔓 Unstake",
+    unstake_now: "✅ You can unstake now.",
+    unstake_locked: "🔒 Unstake available from:",
+    claim_title: "🎁 Claim reward",
+    claim_button: "Claim",
+    reward_ready: "🎯 Reward accrued:",
+    reward_none: "🎯 No reward accrued yet.",
+    contract_warning: "⚠️ Contract has no VLD tokens for rewards. Staking will fail until it is funded.",
+    wallet_connected: "Wallet: ",
+    error_wallet: "Error connecting wallet.",
+    error_claim: "Error during claim",
+    success_claim: "Reward claimed!",
+    error_unstake: "Error during unstake",
+    success_unstake: "Unstake completed!",
+    error_stake: "Error during stake",
+    success_stake: "Stake successful!",
+    invalid_amount: "Please enter a valid amount",
+    insufficient_balance: "Insufficient balance to stake!",
+    connect_first: "You must connect your wallet first!"
+  }
+};
+
+let currentLang = "it";
+
+function updateLanguage(lang) {
+  currentLang = lang;
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const key = el.getAttribute("data-i18n");
+    if (translations[lang][key]) {
+      el.innerText = translations[lang][key];
+    }
+  });
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  updateLanguage(currentLang);
+});
+</script>
+
 </body>
 </html>
