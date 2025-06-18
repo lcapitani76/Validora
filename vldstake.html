@@ -68,7 +68,7 @@
 
     
 
-  <h1 data-i18n="title">VLD Staking Interface 1.10</h1>
+  <h1 data-i18n="title">VLD Staking Interface 1.1</h1>
   <button id="connect" data-i18n="connect">🔗 Connetti Wallet</button>
   <p id="account"></p>
   <p id="warning"></p>
@@ -174,7 +174,7 @@
 
     document.getElementById("connect").onclick = async () => {
       try {
-        if (!window.ethereum) return alert("Installa Metamask!");
+        if (!window.ethereum) return alert(translations[currentLang].install_metamask);
 
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         await provider.send("eth_requestAccounts", []);
@@ -200,19 +200,19 @@
         await refreshUserData();
       } catch (error) {
         console.error("Errore nella connessione wallet:", error);
-        alert("Errore nella connessione al wallet.");
+        alert(translations[currentLang].error_wallet);
       }
     };
 
     document.getElementById("stake").onclick = async () => {
-      if (!stakingContract || !tokenContract) return alert("Devi prima connettere il wallet!");
+      if (!stakingContract || !tokenContract) return alert(translations[currentLang].connect_first);
       
       const amount = document.getElementById("amount").value;
-      if (!amount || isNaN(amount)) return alert("Inserisci un importo valido");
+      if (!amount || isNaN(amount)) return alert(translations[currentLang].invalid_amount);
 
       const amountParsed = ethers.utils.parseUnits(amount, tokenDecimals);
       const walletBalance = await tokenContract.balanceOf(userAddress);
-      if (walletBalance.lt(amountParsed)) return alert("Saldo insufficiente per fare stake!");
+      if (walletBalance.lt(amountParsed)) return alert(translations[currentLang].insufficient_balance);
 
       try {
         const currentAllowance = await tokenContract.allowance(userAddress, contractAddress);
@@ -230,37 +230,37 @@
 
         const stakeTx = await stakingContract.stake(amountParsed, { gasLimit: gasEstimate });
         await stakeTx.wait();
-        alert("Stake eseguito!");
+        alert(translations[currentLang].success_stake);
         await refreshUserData();
       } catch (e) {
         console.error("Errore durante lo stake:", e);
-        alert("Errore durante lo stake");
+        alert(translations[currentLang].error_stake);
       }
     };
 
     document.getElementById("claim").onclick = async () => {
-      if (!stakingContract) return alert("Wallet non connesso");
+      if (!stakingContract) return alert(translations[currentLang].connect_first);
       try {
         const tx = await stakingContract.claimReward();
         await tx.wait();
-        alert("Reward ricevuto!");
+        alert(translations[currentLang].success_claim);
         await refreshUserData();
       } catch (e) {
         console.error("Errore durante il claim:", e);
-        alert("Errore durante il claim");
+        alert(translations[currentLang].error_claim);
       }
     };
 
     document.getElementById("unstake").onclick = async () => {
-      if (!stakingContract) return alert("Wallet non connesso");
+      if (!stakingContract) return alert(translations[currentLang].connect_first);
       try {
         const tx = await stakingContract.unstake();
         await tx.wait();
-        alert("Unstake completato!");
+        alert(translations[currentLang].success_unstake);
         await refreshUserData();
       } catch (e) {
         console.error("Errore durante l'unstake:", e);
-        alert("Errore durante l'unstake");
+        alert(translations[currentLang].error_unstake);
       }
     };
   </script>
@@ -268,6 +268,8 @@
 <script>
 const translations = {
   it: {
+    install_metamask: "Installa Metamask!",
+
     title: "Interfaccia VLD Staking 1.05",
     connect: "🔗 Connetti Wallet",
     stake_title: "🪙 Fai stake dei tuoi VLD",
@@ -294,6 +296,8 @@ const translations = {
     connect_first: "Devi prima connettere il wallet!"
   },
   en: {
+    install_metamask: "Install Metamask!",
+
     title: "VLD Staking Interface 1.05",
     connect: "🔗 Connect Wallet",
     stake_title: "🪙 Stake your VLD",
