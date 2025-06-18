@@ -132,9 +132,9 @@
             .div(totalStaked);
 
           if (estimated.gt(0)) {
-            rewardOutput.innerText = `🎯 Reward maturata: ${ethers.utils.formatUnits(estimated, tokenDecimals)} VLD`;
+            rewardOutput.innerText = `${translations[currentLang].reward_ready} ${ethers.utils.formatUnits(estimated, tokenDecimals)} VLD`;
           } else {
-            rewardOutput.innerText = `🎯 Nessuna reward maturata al momento.`;
+            rewardOutput.innerText = translations[currentLang].reward_none;
           }
         } else {
           rewardOutput.innerText = "";
@@ -152,10 +152,10 @@
           unstakeButton.disabled = true;
         } else if (now < unlockTime) {
           const unlockDate = new Date(unlockTime * 1000);
-          unstakeInfo.innerText = `🔒 Unstake disponibile dal: ${unlockDate.toLocaleDateString()}`;
+          unstakeInfo.innerText = `${translations[currentLang].unstake_locked} ${unlockDate.toLocaleDateString()}`;
           unstakeButton.disabled = true;
         } else {
-          unstakeInfo.innerText = `✅ Puoi fare unstake ora.`;
+          unstakeInfo.innerText = translations[currentLang].unstake_now;
           unstakeButton.disabled = false;
         }
 
@@ -173,7 +173,7 @@
         signer = provider.getSigner();
         userAddress = await signer.getAddress();
 
-        document.getElementById("account").innerText = `Wallet: ${userAddress}`;
+        document.getElementById("account").innerText = `${translations[currentLang].wallet_connected}${userAddress}`;
 
         stakingContract = new ethers.Contract(contractAddress, abi, signer);
         tokenContract = new ethers.Contract(tokenAddress, tokenAbi, signer);
@@ -186,7 +186,7 @@
 
         const rewardFund = await tokenContract.balanceOf(contractAddress);
         document.getElementById("warning").innerText = rewardFund.eq(0)
-          ? "⚠️ Il contratto non contiene VLD per i reward. Lo stake fallirà finché non viene finanziato."
+          ? translations[currentLang].contract_warning
           : "";
 
         await refreshUserData();
@@ -276,7 +276,7 @@ const translations = {
     claim_button: "Claim",
     reward_ready: "🎯 Reward maturata:",
     reward_none: "🎯 Nessuna reward maturata al momento.",
-    contract_warning: "⚠️ Il contratto non contiene VLD per i reward. Lo stake fallirà finché non viene finanziato.",
+    contract_warning: translations[currentLang].contract_warning,
     wallet_connected: "Wallet: ",
     error_wallet: "Errore nella connessione al wallet.",
     error_claim: "Errore durante il claim",
