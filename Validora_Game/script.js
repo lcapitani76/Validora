@@ -111,7 +111,7 @@ function spin() {
 
       if (winLines.length > 0) {
         document.getElementById('result').innerText =
-          `🎉 Hai vinto ${winLines.length} line${winLines.length > 1 ? 'e' : ''}!`;
+           ` 🚀 You hit ${winLines.length} winning line${winLines.length > 1 ? 's' : ''}!`
 
         winLines.forEach(line => {
           line.forEach((row, col) => {
@@ -120,14 +120,14 @@ function spin() {
           });
         });
       } else {
-        document.getElementById('result').innerText = `😢 Nessuna combinazione.`;
+        document.getElementById('result').innerText = ` 📉 Market's down... try again!`;
       }
 
       if (triggerBonus) {
         const bonus = Math.floor(Math.random() * 9) + 4;
         freeSpins += bonus;
         triggerEpicBonus(bonus);
-        document.getElementById('result').innerText += ` 💥 Hai sbloccato il BONUS!`;
+        document.getElementById('result').innerText += ` 🪙 BONUS mode: On-chain madness begins!`;
       }
 
       updateFreeSpinDisplay();
@@ -146,5 +146,5 @@ function spin() {
 
 function updateFreeSpinDisplay() {
   const disp = document.getElementById('freespin');
-  disp.innerText = freeSpins > 0 ? `🌀 Free Spins Rimasti: ${freeSpins}` : '';
+  disp.innerText = freeSpins > 0 ? `🔁 Free Spin Balance: ${freeSpins}` : '';
 }
