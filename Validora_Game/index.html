@@ -8,17 +8,78 @@
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
+
+<button onclick="openInfoModal()" style="position: absolute; top: 10px; right: 10px;">ℹ️ Info</button>
+
+
+<div id="balance-display" style="text-align:center; font-weight: bold; font-size: 1.2em; margin-bottom: 10px;">
+  💰 Balance: 1000 VLD
+</div>
+
+
+<div id="bet-container" style="margin-bottom: 10px; text-align: center;">
+  <label for="bet-amount">Select your bet (Validora): </label>
+  <select id="bet-amount">
+    <option value="1">1</option>
+    <option value="5">5</option>
+    <option value="15">15</option>
+    <option value="25">25</option>
+    <option value="50">50</option>
+    <option value="75">75</option>
+    <option value="100">100</option>
+  </select>
+</div>
+<div id="win-display" style="margin-top: 10px; text-align: center; font-weight: bold;"></div>
+
   <div class="container" id="main-container">
     <h1>🎰 Validora Slot Machine 🎰</h1>
     <div id="explosion"></div>
     <img src="symbols/wild.png" id="validora-boom" />
     <div id="bonus-text">+X FREE SPINS!</div>
     <div class="slot"></div>
-    <button onclick="spin()">🎯 SPIN</button>
+    <button id="spin-button" onclick="spin()">🎯 SPIN</button>
     <div id="freespin"></div>
     <div id="result"></div>
   </div>
 
   <script src="script.js"></script>
+<!-- Info Modal -->
+<div id="info-modal" style="
+  display: none;
+  position: fixed;
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  background: #000;
+  color: #f8f8f8;
+  border: 2px solid gold;
+  padding: 20px;
+  z-index: 1000;
+  overflow-y: auto;
+  border-radius: 10px;
+  box-shadow: 0 0 20px gold;
+">
+  <h2 style="color: gold;">🎰 Validora Slot Info</h2>
+  <p><strong>How to play:</strong> Select your bet, press SPIN, and match 3 symbols on a line.</p>
+  <p><strong>Winning lines:</strong> Horizontal only (3 rows).</p>
+  <p><strong>Wild:</strong> Replaces any symbol.</p>
+  <p><strong>Bonus:</strong> 3 wilds trigger FREE SPINS.</p>
+
+  <h3 style="color: gold;">Payout Multipliers:</h3>
+  <table border="1" style="width:100%; text-align:center; border-color: gold; color: #fff;">
+    <tr><th>Symbol</th><th>Multiplier</th></tr>
+    <tr><td>BTC</td><td>x10</td></tr>
+    <tr><td>ETH</td><td>x7</td></tr>
+    <tr><td>BNB</td><td>x5</td></tr>
+    <tr><td>XMR</td><td>x4</td></tr>
+    <tr><td>LTC</td><td>x3</td></tr>
+    <tr><td>DOGE</td><td>x2</td></tr>
+    <tr><td>WILD</td><td>x0 (used as substitute only)</td></tr>
+  </table>
+
+  <br/>
+  <button onclick="closeInfoModal()" style="padding: 10px 20px; background: gold; color: black; border: none; border-radius: 5px;">Close</button>
+</div>
+<!-- Info Modal end-->
 </body>
 </html>
