@@ -5,6 +5,21 @@ const wild = 'wild';
 let freeSpins = 0;
 let spinning = false;
 
+let balance = 1000;
+
+function updateBalanceDisplay() {
+  if (freeSpins == 0) 
+  {
+  	  document.getElementById("spin-button").disabled = false;
+	  document.getElementById("spin-button").style.opacity = "1";
+	  document.getElementById("bet-amount").disabled = false;
+	  document.getElementById("bet-amount").style.opacity = "1";
+  }  
+  const display = document.getElementById('balance-display');
+  if (display) display.innerText = `💰 Balance: ${balance} VLD`;
+}
+
+
 function imageFor(symbol) {
   return `<img src="symbols/${symbol}.png" alt="${symbol}" title="${symbol.toUpperCase()}">`;
 }
@@ -27,6 +42,43 @@ const paylines = [
   [1, 1, 1],
   [2, 2, 2]
 ];
+
+
+const payoutTable = {
+  'doge': 2,
+  'ltc': 3,
+  'xmr': 4,
+  'bnb': 5,
+  'eth': 7,
+  'btc': 10,
+  'wild': 0
+};
+
+function calculateTotalMultiplier(matrix) {
+  let total = 0;
+  paylines.forEach((line) => {
+    const values = line.map((row, col) => matrix[col][row]);
+    const counts = {};
+    let wildCount = 0;
+
+    for (const symbol of values) {
+      if (symbol === wild) {
+        wildCount++;
+      } else {
+        counts[symbol] = (counts[symbol] || 0) + 1;
+      }
+    }
+
+    const uniqueSymbols = Object.keys(counts);
+    if (uniqueSymbols.length === 1 && (counts[uniqueSymbols[0]] + wildCount === 3)) {
+      const symbol = uniqueSymbols[0];
+      const multiplier = payoutTable[symbol] || 0;
+      total += multiplier;
+    }
+  });
+  return total;
+}
+
 
 function renderMatrix(matrix) {
   const slots = document.querySelector('.slot');
@@ -84,12 +136,26 @@ function triggerEpicBonus(bonusAmount) {
   }, 1500);
 }
 
+
 function spin() {
   if (spinning) return;
   spinning = true;
   document.getElementById('result').innerText = '';
   let matrix;
   let count = 0;
+
+  const betAmount = parseInt(document.getElementById('bet-amount')?.value) || 1;
+  
+  if (balance < betAmount) {
+  	document.getElementById('result').innerText = `❌ Not enough Validora to place this bet.`;
+	spinning = false;
+        return;
+     }
+
+  document.getElementById("spin-button").disabled = true;
+  document.getElementById("spin-button").style.opacity = "0.5";
+  document.getElementById("bet-amount").disabled = true;
+  document.getElementById("bet-amount").style.opacity = "0.5";
 
   const interval = setInterval(() => {
     matrix = spinMatrix();
@@ -108,10 +174,14 @@ function spin() {
         if (checkLine(matrix, line)) winLines.push(line);
         if (values.every(v => v === wild)) triggerBonus = true;
       });
+      const totalMultiplier = calculateTotalMultiplier(matrix);
+      const winAmount = totalMultiplier * betAmount;
+      balance += winAmount - betAmount;
+      updateBalanceDisplay();
 
       if (winLines.length > 0) {
         document.getElementById('result').innerText =
-           ` 🚀 You hit ${winLines.length} winning line${winLines.length > 1 ? 's' : ''}!`
+           `🚀 You hit ${winLines.length} winning line${winLines.length > 1 ? 's' : ''} and won ${winAmount} VLD!`;
 
         winLines.forEach(line => {
           line.forEach((row, col) => {
@@ -120,7 +190,7 @@ function spin() {
           });
         });
       } else {
-        document.getElementById('result').innerText = ` 📉 Market's down... try again!`;
+        document.getElementById('result').innerText = `📉 Market's down... try again!`;
       }
 
       if (triggerBonus) {
@@ -142,9 +212,26 @@ function spin() {
       }
     }
   }, 100);
+  }
+function initializeReels() {
+  matrix = spinMatrix();
+  renderMatrix(matrix);
 }
+
+window.onload = () => {
+  initializeReels();
+};
+
 
 function updateFreeSpinDisplay() {
   const disp = document.getElementById('freespin');
   disp.innerText = freeSpins > 0 ? `🔁 Free Spin Balance: ${freeSpins}` : '';
+}
+
+function openInfoModal() {
+  document.getElementById('info-modal').style.display = 'block';
+}
+
+function closeInfoModal() {
+  document.getElementById('info-modal').style.display = 'none';
 }
