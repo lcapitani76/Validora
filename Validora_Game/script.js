@@ -1,4 +1,3 @@
-
 const symbols = ['btc', 'bnb', 'doge', 'eth', 'ltc', 'xmr'];
 const wild = 'wild';
 
@@ -8,17 +7,15 @@ let spinning = false;
 let balance = 1000;
 
 function updateBalanceDisplay() {
-  if (freeSpins == 0) 
-  {
-  	  document.getElementById("spin-button").disabled = false;
-	  document.getElementById("spin-button").style.opacity = "1";
-	  document.getElementById("bet-amount").disabled = false;
-	  document.getElementById("bet-amount").style.opacity = "1";
-  }  
+  if (freeSpins == 0) {
+    document.getElementById("spin-button").disabled = false;
+    document.getElementById("spin-button").style.opacity = "1";
+    document.getElementById("bet-amount").disabled = false;
+    document.getElementById("bet-amount").style.opacity = "1";
+  }
   const display = document.getElementById('balance-display');
   if (display) display.innerText = `💰 Balance: ${balance} VLD`;
 }
-
 
 function imageFor(symbol) {
   return `<img src="symbols/${symbol}.png" alt="${symbol}" title="${symbol.toUpperCase()}">`;
@@ -42,7 +39,6 @@ const paylines = [
   [1, 1, 1],
   [2, 2, 2]
 ];
-
 
 const payoutTable = {
   'doge': 0.5,
@@ -78,7 +74,6 @@ function calculateTotalMultiplier(matrix) {
   });
   return total;
 }
-
 
 function renderMatrix(matrix) {
   const slots = document.querySelector('.slot');
@@ -136,7 +131,6 @@ function triggerEpicBonus(bonusAmount) {
   }, 1500);
 }
 
-
 function spin() {
   if (spinning) return;
   spinning = true;
@@ -145,12 +139,17 @@ function spin() {
   let count = 0;
 
   const betAmount = parseInt(document.getElementById('bet-amount')?.value) || 1;
-  
-  if (balance < betAmount) {
-  	document.getElementById('result').innerText = `❌ Not enough Validora to place this bet.`;
-	spinning = false;
-        return;
-     }
+  const isFreeSpin = freeSpins > 0;
+  if (isFreeSpin) {
+    freeSpins--;
+    updateFreeSpinDisplay();
+  }
+
+  if (!isFreeSpin && balance < betAmount) {
+    document.getElementById('result').innerText = `❌ Not enough Validora to place this bet.`;
+    spinning = false;
+    return;
+  }
 
   document.getElementById("spin-button").disabled = true;
   document.getElementById("spin-button").style.opacity = "0.5";
@@ -176,12 +175,12 @@ function spin() {
       });
       const totalMultiplier = calculateTotalMultiplier(matrix);
       const winAmount = totalMultiplier * betAmount;
-      balance += winAmount - betAmount;
+      balance += isFreeSpin ? winAmount : (winAmount - betAmount);
       updateBalanceDisplay();
 
       if (winLines.length > 0) {
         document.getElementById('result').innerText =
-           `🚀 You hit ${winLines.length} winning line${winLines.length > 1 ? 's' : ''} and won ${winAmount} VLD!`;
+          `${isFreeSpin ? '🔁 FREE SPIN — ' : ''}🚀 You hit ${winLines.length} winning line${winLines.length > 1 ? 's' : ''} and won ${winAmount} VLD!`;
 
         winLines.forEach(line => {
           line.forEach((row, col) => {
@@ -190,7 +189,8 @@ function spin() {
           });
         });
       } else {
-        document.getElementById('result').innerText = `📉 Market's down... try again!`;
+        document.getElementById('result').innerText =
+          `${isFreeSpin ? '🔁 FREE SPIN — ' : ''}📉 Market's down... try again!`;
       }
 
       if (triggerBonus) {
@@ -205,14 +205,13 @@ function spin() {
 
       if (freeSpins > 0) {
         setTimeout(() => {
-          freeSpins--;
-          updateFreeSpinDisplay();
           spin();
         }, 1800);
       }
     }
   }, 100);
-  }
+}
+
 function initializeReels() {
   matrix = spinMatrix();
   renderMatrix(matrix);
@@ -221,7 +220,6 @@ function initializeReels() {
 window.onload = () => {
   initializeReels();
 };
-
 
 function updateFreeSpinDisplay() {
   const disp = document.getElementById('freespin');
