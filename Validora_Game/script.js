@@ -45,7 +45,7 @@ const paylines = [
 
 
 const payoutTable = {
-  'doge': 1.5,
+  'doge': 1,
   'ltc': 2,
   'xmr': 3,
   'bnb': 4,
