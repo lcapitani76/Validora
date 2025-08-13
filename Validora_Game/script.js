@@ -45,12 +45,12 @@ const paylines = [
 
 
 const payoutTable = {
-  'doge': 1,
-  'ltc': 2,
-  'xmr': 3,
-  'bnb': 4,
-  'eth': 6,
-  'btc': 8,
+  'doge': 0.5,
+  'ltc': 1,
+  'xmr': 1.5,
+  'bnb': 2,
+  'eth': 3,
+  'btc': 5,
   'wild': 0
 };
 
