@@ -1,95 +1,119 @@
 <!DOCTYPE html>
-
 <html lang="it">
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>VLD Staking</title>
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 <style>
-    body {
-      font-family: 'Roboto', sans-serif;
-      background-color: #0b1120;
-      color: #d0d0d0;
-      margin: 0;
-      padding: 2rem;
-      text-align: center;
-    }
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 1rem;
-    }
-    button {
-      background-color: #3b82f6;
-      color: white;
-      border: none;
-      padding: 0.75rem 1.5rem;
-      margin: 0.5rem;
-      border-radius: 8px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    input[type="number"] {
-      padding: 0.5rem;
-      font-size: 1rem;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      margin-right: 0.5rem;
-    }
-    .section {
-      margin-top: 2rem;
-    }
-    #account {
-      margin-top: 1rem;
-      font-style: italic;
-      color: #94a3b8;
-    }
-    .note {
-      color: #facc15;
-      font-size: 0.95rem;
-      margin-top: 0.5rem;
-    }
-    #warning {
-      color: #f87171;
-      font-size: 1rem;
-      margin-top: 1rem;
-      font-weight: bold;
-    }
-  </style>
+  :root{
+    --bg:#0b1120;
+    --card:#0f172a;
+    --text:#d0d0d0;
+    --muted:#94a3b8;
+    --primary:#3b82f6;
+    --warn:#facc15;
+    --error:#f87171;
+    --ok:#22c55e;
+  }
+  *{box-sizing:border-box}
+  body{
+    font-family:'Roboto',sans-serif;
+    background-color:var(--bg);
+    color:var(--text);
+    margin:0;
+    padding:2rem;
+  }
+  h1{font-size:2rem;margin:0 0 1rem 0;text-align:center}
+  .topbar{position:sticky;top:0;display:flex;justify-content:flex-end;gap:.5rem;align-items:center;background:linear-gradient(180deg, rgba(11,17,32,0.95), rgba(11,17,32,0));padding:.5rem 0 1rem 0}
+  button{
+    background-color:var(--primary);
+    color:white;border:none;padding:.6rem 1rem;border-radius:10px;
+    font-weight:bold;cursor:pointer;transition:transform .06s ease,opacity .2s;
+  }
+  button:disabled{opacity:.6;cursor:not-allowed;transform:none}
+  input[type="number"]{
+    padding:.6rem;font-size:1rem;border-radius:10px;border:1px solid #334155;background:#0b1328;color:var(--text);
+  }
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;margin-top:1rem}
+  .card{background:var(--card);border-radius:16px;padding:1rem;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .muted{color:var(--muted);font-size:.95rem}
+  .note{color:var(--warn);font-size:.95rem;margin-top:.5rem}
+  .error{color:var(--error);font-weight:700}
+  .ok{color:var(--ok);font-weight:700}
+  .row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+  .stat{font-size:1.1rem;margin:.25rem 0}
+  .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, monospace;background:#0b1328;border:1px solid #334155;border-radius:6px;padding:.1rem .4rem}
+  .spinner{display:none;margin-left:.5rem;border:3px solid #1e293b;border-top:3px solid #fff;border-radius:50%;width:16px;height:16px;animation:spin 0.8s linear infinite}
+  @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+  .footer{margin-top:1rem;text-align:center;color:var(--muted);font-size:.85rem}
+  .link{color:#93c5fd;text-decoration:none}
+</style>
 </head>
 <body>
-<div style="position: absolute; top: 1rem; right: 1rem; display: flex; gap: 0.5rem; align-items: center;">
-  🌐
-  <button data-i18n="lang_ita" onclick="updateLanguage('it')" style="background-color:#3b82f6;color:white;border:none;padding:0.4rem 0.8rem;border-radius:6px;font-weight:bold;cursor:pointer;">ITA</button>
-<button data-i18n="lang_eng" onclick="updateLanguage('en')" style="background-color:#3b82f6;color:white;border:none;padding:0.4rem 0.8rem;border-radius:6px;font-weight:bold;cursor:pointer;">ENG</button>
-</div>
-<h1 data-i18n="title">VLD Staking Interface 1.05</h1>
-<button data-i18n="connect" id="connect">🔗 Connetti Wallet</button>
-<p id="account"></p>
-<p id="warning"></p>
-<div class="section">
-<h3 data-i18n="stake_title">🪙 Fai stake dei tuoi VLD</h3>
-<input id="amount" placeholder="Quantità VLD" type="number"/>
-<button data-i18n="stake_button" id="stake">Stake</button>
-<p class="note" data-i18n="stake_note">⏳ Periodo minimo di blocco: 30 giorni</p>
-<p class="note" id="user-balance"></p>
-<p class="note" id="user-staked"></p>
-</div>
-<div class="section">
-<h3 data-i18n="claim_title">🎁 Claim reward</h3>
-<button data-i18n="claim_button" id="claim">Claim</button>
-<p class="note" id="estimated-reward"></p>
-</div>
-<div class="section">
-<h3 data-i18n="unstake_title">🔓 Unstake</h3>
-<button data-i18n="unstake_button" disabled="" id="unstake">Unstake</button>
-<p class="note" id="unstake-info"></p>
-</div>
+  <div class="topbar">
+    <span>🌐</span>
+    <button data-i18n="lang_ita" onclick="updateLanguage('it')">ITA</button>
+    <button data-i18n="lang_eng" onclick="updateLanguage('en')">ENG</button>
+  </div>
+
+  <h1 data-i18n="title">VLD Staking Interface 1.06</h1>
+
+  <div class="grid">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <button id="connect" data-i18n="connect">🔗 Connetti Wallet</button>
+        <div class="row">
+          <span id="net" class="muted">—</span>
+          <div id="busy" class="spinner"></div>
+        </div>
+      </div>
+      <p id="account" class="muted" style="word-break:break-all"></p>
+      <p id="warning" class="error"></p>
+      <div id="funded" class="ok" style="display:none"></div>
+    </div>
+
+    <div class="card">
+      <h3 data-i18n="stake_title">🪙 Fai stake dei tuoi VLD</h3>
+      <div class="row" style="margin:.5rem 0">
+        <input id="amount" placeholder="Quantità VLD" type="number" min="0" step="any"/>
+        <button id="maxBtn" title="Usa tutto il saldo">MAX</button>
+        <button id="stake" data-i18n="stake_button">Stake</button>
+      </div>
+      <p class="note" data-i18n="stake_note">⏳ Periodo minimo di blocco: 30 giorni</p>
+      <p class="muted stat" id="user-balance"></p>
+      <p class="muted stat" id="user-staked"></p>
+      <p class="muted stat" id="tvl"></p>
+    </div>
+
+    <div class="card">
+      <h3 data-i18n="claim_title">🎁 Claim reward</h3>
+      <div class="row" style="margin:.5rem 0">
+        <button id="claim" data-i18n="claim_button">Claim</button>
+      </div>
+      <p class="muted stat" id="estimated-reward"></p>
+    </div>
+
+    <div class="card">
+      <h3 data-i18n="unstake_title">🔓 Unstake</h3>
+      <div class="row" style="margin:.5rem 0">
+        <button id="unstake" data-i18n="unstake_button" disabled>Unstake</button>
+      </div>
+      <p class="muted stat" id="unstake-info"></p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>VLD Staking UI v1.06 • Ethers.js 5 • BSC Mainnet</span>
+  </div>
+
 <script>
+  // ====== Addresses ======
   const contractAddress = "0x9AA246af0B01D51D5a9e59c1DdECa6544B8A0198"; // Staking
   const tokenAddress    = "0xDF9387A2BF55F1e5b9f60599b6Ccbf6a5dA13A4b"; // VLD
 
+  // ====== ABIs ======
   const abi = [
     "function stake(uint256 amount) public",
     "function claimReward() public",
@@ -99,70 +123,103 @@
     "function lockPeriod() view returns (uint256)",
     "function annualRatePercent() view returns (uint256)"
   ];
-
   const tokenAbi = [
     "function approve(address spender, uint256 amount) public returns (bool)",
     "function balanceOf(address account) view returns (uint256)",
     "function allowance(address owner, address spender) view returns (uint256)",
-    "function decimals() view returns (uint8)"
+    "function decimals() view returns (uint8)",
+    "function symbol() view returns (string)"
   ];
 
-  let signer, userAddress, stakingContract, tokenContract, tokenDecimals = 18;
+  // ====== State ======
+  let provider, signer, userAddress, stakingContract, tokenContract, tokenDecimals = 18, symbol = "VLD";
+  let refreshTimer = null;
+  let currentLang = localStorage.getItem("vld_lang") || "it";
 
-  async function ensureBSC(provider) {
-    const network = await provider.getNetwork();
-    if (network.chainId !== 56) {
-      try {
-        await window.ethereum.request({
-          method: 'wallet_addEthereumChain',
-          params: [{
-            chainId: '0x38', // 56
-            chainName: 'BNB Smart Chain',
-            nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-            rpcUrls: ['https://bsc-dataseed.binance.org/'],
-            blockExplorerUrls: ['https://bscscan.com/'],
-          }]
-        });
-      } catch (e) {
-        alert('Seleziona manualmente la rete "BNB Smart Chain" in MetaMask per continuare.');
+  // ====== Helpers ======
+  const $ = (id) => document.getElementById(id);
+  const busy = (on)=> { $("busy").style.display = on ? "inline-block" : "none"; };
+  const disableAll = (on)=> {
+    ["stake","claim","unstake","connect","maxBtn"].forEach(id=>{
+      const el=$(id); if(el){el.disabled=on;}
+    });
+  };
+  function parseRevert(e){
+    try{
+      if(e && e.error && e.error.message) return e.error.message;
+      if(e && e.data && e.data.message) return e.data.message;
+      if(e && e.message) return e.message;
+    }catch{}
+    return "Transaction failed";
+  }
+
+  async function ensureBSC(){
+    const net = await provider.getNetwork();
+    if (net.chainId === 56){ $("net").innerText = "🟢 BSC Mainnet (56)"; return; }
+    $("net").innerText = `🔁 Switch network (current id ${net.chainId})`;
+    try {
+      await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] });
+      $("net").innerText = "🟢 BSC Mainnet (56)";
+    } catch (switchErr) {
+      // If the chain is not added yet
+      if (switchErr.code === 4902) {
+        try {
+          await window.ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [{
+              chainId: "0x38",
+              chainName: "BNB Smart Chain",
+              nativeCurrency: { name:"BNB", symbol:"BNB", decimals:18 },
+              rpcUrls: ["https://bsc-dataseed.binance.org/"],
+              blockExplorerUrls: ["https://bscscan.com/"]
+            }]
+          });
+          $("net").innerText = "🟢 BSC Mainnet (56)";
+        } catch (addErr) {
+          alert(translations[currentLang].switch_failed);
+        }
+      } else {
+        alert(translations[currentLang].switch_failed);
       }
     }
   }
 
-  async function refreshUserData() {
+  async function refreshUserData(){
+    if(!stakingContract || !tokenContract || !userAddress) return;
+    busy(true);
     try {
-      const userBalance = await tokenContract.balanceOf(userAddress);
-      document.getElementById("user-balance").innerText =
-        `Saldo VLD: ${ethers.utils.formatUnits(userBalance, tokenDecimals)}`;
+      const [userBalance, stakeInfo, lp, arp, tvl] = await Promise.all([
+        tokenContract.balanceOf(userAddress),
+        stakingContract.stakes(userAddress),
+        stakingContract.lockPeriod(),
+        stakingContract.annualRatePercent(),
+        stakingContract.totalStaked()
+      ]);
 
-      const stakeInfo = await stakingContract.stakes(userAddress);
-      document.getElementById("user-staked").innerText =
-        `In staking: ${ethers.utils.formatUnits(stakeInfo.amount, tokenDecimals)} VLD`;
+      $("user-balance").innerText = `${translations[currentLang].balance}: ${ethers.utils.formatUnits(userBalance, tokenDecimals)} ${symbol}`;
+      $("user-staked").innerText  = `${translations[currentLang].staked}: ${ethers.utils.formatUnits(stakeInfo.amount, tokenDecimals)} ${symbol}`;
+      $("tvl").innerText          = `${translations[currentLang].tvl}: ${ethers.utils.formatUnits(tvl, tokenDecimals)} ${symbol}`;
 
-      // Mostra APY e lock period reali
-      const lp   = await stakingContract.lockPeriod();
-      const arp  = await stakingContract.annualRatePercent();
+      // APY & lock period
       const days = Math.floor(lp.toNumber()/86400);
-      // Aggiorna la riga "Periodo minimo di blocco"
       const stakeNoteEl = document.querySelector('[data-i18n="stake_note"]');
       if (stakeNoteEl) {
-        stakeNoteEl.innerText = `⏳ Periodo minimo di blocco: ${days} giorni — APY: ${arp.toString()}%`;
+        stakeNoteEl.innerText = `⏳ ${translations[currentLang].lock_period}: ${days} ${translations[currentLang].days} — APY: ${arp.toString()}%`;
       }
 
-      // Stima reward lato UI in base alla formula on-chain:
-      // reward = amount * annualRatePercent * elapsedDays / 36500
-      const currentBlock = await signer.provider.getBlock("latest");
-      const now = currentBlock.timestamp;
-      const elapsedDays = Math.floor((now - stakeInfo.lastClaim.toNumber()) / 86400);
-      const rewardOutput = document.getElementById("estimated-reward");
+      // Rewards estimate (UI-side; on-chain is canonical)
+      const block = await signer.provider.getBlock("latest");
+      const now = block.timestamp;
+      const elapsedDays = Math.max(0, Math.floor((now - stakeInfo.lastClaim.toNumber()) / 86400));
+      const rewardOutput = $("estimated-reward");
 
       if (!stakeInfo.amount.isZero() && elapsedDays > 0) {
         const estimated = stakeInfo.amount
-          .mul(arp) // annualRatePercent
+          .mul(arp) // percent
           .mul(ethers.BigNumber.from(elapsedDays))
           .div(36500);
         if (estimated.gt(0)) {
-          rewardOutput.innerText = `${translations[currentLang].reward_ready} ${ethers.utils.formatUnits(estimated, tokenDecimals)} VLD`;
+          rewardOutput.innerText = `${translations[currentLang].reward_ready} ${ethers.utils.formatUnits(estimated, tokenDecimals)} ${symbol}`;
         } else {
           rewardOutput.innerText = translations[currentLang].reward_none;
         }
@@ -170,213 +227,242 @@
         rewardOutput.innerText = translations[currentLang].reward_none;
       }
 
-      // Blocco/visualizzazione data unstake
-      const unstakeButton = document.getElementById("unstake");
-      const unstakeInfo   = document.getElementById("unstake-info");
-
-      const stakeStart  = stakeInfo.startTime.toNumber();
-      const unlockTime  = stakeStart + lp.toNumber();
+      // Unstake gating
+      const unstakeBtn = $("unstake");
+      const unstakeInfo = $("unstake-info");
+      const unlockTime = stakeInfo.startTime.toNumber() + lp.toNumber();
 
       if (stakeInfo.amount.isZero()) {
         unstakeInfo.innerText = "";
-        unstakeButton.disabled = true;
-      } else if (now < unlockTime) {
+        unstakeBtn.disabled = true;
+      } else if (block.timestamp < unlockTime) {
         const unlockDate = new Date(unlockTime * 1000);
         unstakeInfo.innerText = `${translations[currentLang].unstake_locked} ${unlockDate.toLocaleDateString()}`;
-        unstakeButton.disabled = true;
+        unstakeBtn.disabled = true;
       } else {
         unstakeInfo.innerText = translations[currentLang].unstake_now;
-        unstakeButton.disabled = false;
+        unstakeBtn.disabled = false;
       }
 
-      // Avviso se il contratto non ha fondi di reward
+      // Contract funded?
       const rewardFund = await tokenContract.balanceOf(contractAddress);
-      document.getElementById("warning").innerText = rewardFund.eq(0)
-        ? translations[currentLang].contract_warning
-        : "";
-
-    } catch (err) {
-      console.error("Errore in refreshUserData:", err);
+      if (rewardFund.eq(0)) {
+        $("warning").innerText = translations[currentLang].contract_warning;
+        $("funded").style.display = "none";
+      } else {
+        $("warning").innerText = "";
+        $("funded").style.display = "block";
+        $("funded").innerText = `${translations[currentLang].contract_funded} ${ethers.utils.formatUnits(rewardFund, tokenDecimals)} ${symbol}`;
+      }
+    } catch(err){
+      console.error("refreshUserData", err);
+    } finally {
+      busy(false);
     }
   }
 
-  document.getElementById("connect").onclick = async () => {
+  function autoRefresh(start){
+    if (start){
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = setInterval(refreshUserData, 20000);
+    } else if (refreshTimer){
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+  }
+
+  // ====== Events ======
+  $("connect").onclick = async () => {
     try {
       if (!window.ethereum) return alert(translations[currentLang].install_metamask);
-
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      provider = new ethers.providers.Web3Provider(window.ethereum);
       await provider.send("eth_requestAccounts", []);
-      await ensureBSC(provider);
+      await ensureBSC();
 
       signer = provider.getSigner();
       userAddress = await signer.getAddress();
-
-      document.getElementById("account").innerText = `${translations[currentLang].wallet_connected}${userAddress}`;
+      $("account").innerText = `${translations[currentLang].wallet_connected}${userAddress}`;
 
       stakingContract = new ethers.Contract(contractAddress, abi, signer);
       tokenContract   = new ethers.Contract(tokenAddress, tokenAbi, signer);
 
-      try {
-        tokenDecimals = await tokenContract.decimals();
-      } catch {
-        tokenDecimals = 18;
-      }
+      try { tokenDecimals = await tokenContract.decimals(); } catch { tokenDecimals = 18; }
+      try { symbol = await tokenContract.symbol(); } catch { symbol = "VLD"; }
 
       await refreshUserData();
+      autoRefresh(true);
     } catch (error) {
-      console.error("Errore nella connessione wallet:", error);
-      alert(translations[currentLang].error_wallet);
+      console.error("connect", error);
+      alert(translations[currentLang].error_wallet + " — " + parseRevert(error));
     }
   };
 
-  document.getElementById("stake").onclick = async () => {
+  $("maxBtn").onclick = async () => {
+    try{
+      if (!tokenContract || !userAddress) return;
+      const bal = await tokenContract.balanceOf(userAddress);
+      $("amount").value = ethers.utils.formatUnits(bal, tokenDecimals);
+    }catch(e){ /* ignore */ }
+  };
+
+  $("stake").onclick = async () => {
     if (!stakingContract || !tokenContract) return alert(translations[currentLang].connect_first);
+    const amountStr = $("amount").value.trim();
+    if (!amountStr || isNaN(amountStr)) return alert(translations[currentLang].invalid_amount);
+    const amountParsed = ethers.utils.parseUnits(amountStr, tokenDecimals);
+    if (amountParsed.lte(0)) return alert(translations[currentLang].invalid_amount);
 
-    const amount = document.getElementById("amount").value;
-    if (!amount || isNaN(amount)) return alert(translations[currentLang].invalid_amount);
-
-    const amountParsed   = ethers.utils.parseUnits(amount, tokenDecimals);
-    const walletBalance  = await tokenContract.balanceOf(userAddress);
-    if (walletBalance.lt(amountParsed)) return alert(translations[currentLang].insufficient_balance);
-
+    disableAll(true); busy(true);
     try {
-      // Approve MaxUint256 per evitare di rifarla ogni volta
+      const walletBalance  = await tokenContract.balanceOf(userAddress);
+      if (walletBalance.lt(amountParsed)) throw new Error(translations[currentLang].insufficient_balance);
+
+      // Approve once (MaxUint256) if needed
       const currentAllowance = await tokenContract.allowance(userAddress, contractAddress);
       if (currentAllowance.lt(amountParsed)) {
-        const max = ethers.constants.MaxUint256;
-        const approveTx = await tokenContract.approve(contractAddress, max);
+        const approveTx = await tokenContract.approve(contractAddress, ethers.constants.MaxUint256);
         await approveTx.wait();
       }
 
-      // Stima gas con fallback + buffer 10%
+      // Gas estimate + 15% buffer
       let gasEstimate;
-      try {
-        gasEstimate = await stakingContract.estimateGas.stake(amountParsed);
-      } catch {
-        gasEstimate = ethers.BigNumber.from("200000");
-      }
-      const gasWithBuffer = gasEstimate.mul(110).div(100);
+      try { gasEstimate = await stakingContract.estimateGas.stake(amountParsed); }
+      catch { gasEstimate = ethers.BigNumber.from("200000"); }
+      const gasLimit = gasEstimate.mul(115).div(100);
 
-      const stakeTx = await stakingContract.stake(amountParsed, { gasLimit: gasWithBuffer });
-      await stakeTx.wait();
+      const tx = await stakingContract.stake(amountParsed, { gasLimit });
+      await tx.wait();
       alert(translations[currentLang].success_stake);
+      $("amount").value = "";
       await refreshUserData();
     } catch (e) {
-      console.error("Errore durante lo stake:", e);
-      alert(translations[currentLang].error_stake);
+      console.error("stake", e);
+      alert(translations[currentLang].error_stake + " — " + parseRevert(e));
+    } finally {
+      disableAll(false); busy(false);
     }
   };
 
-  document.getElementById("claim").onclick = async () => {
+  $("claim").onclick = async () => {
     if (!stakingContract) return alert(translations[currentLang].connect_first);
+    disableAll(true); busy(true);
     try {
-      const tx = await stakingContract.claimReward();
+      let gas; try { gas = await stakingContract.estimateGas.claimReward(); } catch{}
+      const tx = await stakingContract.claimReward({ gasLimit: gas ? gas.mul(115).div(100) : undefined });
       await tx.wait();
       alert(translations[currentLang].success_claim);
       await refreshUserData();
     } catch (e) {
-      console.error("Errore durante il claim:", e);
-      alert(translations[currentLang].error_claim);
+      console.error("claim", e);
+      alert(translations[currentLang].error_claim + " — " + parseRevert(e));
+    } finally {
+      disableAll(false); busy(false);
     }
   };
 
-  document.getElementById("unstake").onclick = async () => {
+  $("unstake").onclick = async () => {
     if (!stakingContract) return alert(translations[currentLang].connect_first);
+    disableAll(true); busy(true);
     try {
-      const tx = await stakingContract.unstake();
+      let gas; try { gas = await stakingContract.estimateGas.unstake(); } catch{}
+      const tx = await stakingContract.unstake({ gasLimit: gas ? gas.mul(115).div(100) : undefined });
       await tx.wait();
       alert(translations[currentLang].success_unstake);
       await refreshUserData();
     } catch (e) {
-      console.error("Errore durante l'unstake:", e);
-      alert(translations[currentLang].error_unstake);
+      console.error("unstake", e);
+      alert(translations[currentLang].error_unstake + " — " + parseRevert(e));
+    } finally {
+      disableAll(false); busy(false);
     }
   };
-</script>
 
-<script>
-const translations = {
-  it: {
-    lang_ita: "ITA",
-    lang_eng: "ENG",
-    unstake_button: "Unstake",
-    install_metamask: "Installa Metamask!",
-
-    title: "Interfaccia VLD Staking 1.05",
-    connect: "🔗 Connetti Wallet",
-    stake_title: "🪙 Fai stake dei tuoi VLD",
-    stake_note: "⏳ Periodo minimo di blocco: 30 giorni",
-    stake_button: "Stake",
-    unstake_title: "🔓 Unstake",
-    unstake_now: "✅ Puoi fare unstake ora.",
-    unstake_locked: "🔒 Unstake disponibile dal:",
-    claim_title: "🎁 Claim reward",
-    claim_button: "Claim",
-    reward_ready: "🎯 Reward maturata:",
-    reward_none: "🎯 Nessuna reward maturata al momento.",
-    contract_warning: "⚠️ Il contratto non ha token VLD per i reward. Lo staking fallirà finché non verrà finanziato.",
-    wallet_connected: "Wallet: ",
-    error_wallet: "Errore nella connessione al wallet.",
-    error_claim: "Errore durante il claim",
-    success_claim: "Reward ricevuto!",
-    error_unstake: "Errore durante l'unstake",
-    success_unstake: "Unstake completato!",
-    error_stake: "Errore durante lo stake",
-    success_stake: "Stake eseguito!",
-    invalid_amount: "Inserisci un importo valido",
-    insufficient_balance: "Saldo insufficiente per fare stake!",
-    connect_first: "Devi prima connettere il wallet!"
-  },
-  en: {
-    lang_ita: "ITA",
-    lang_eng: "ENG",
-    unstake_button: "Unstake",
-    install_metamask: "Install Metamask!",
-
-    title: "VLD Staking Interface 1.05",
-    connect: "🔗 Connect Wallet",
-    stake_title: "🪙 Stake your VLD",
-    stake_note: "⏳ Minimum lock period: 30 days",
-    stake_button: "Stake",
-    unstake_title: "🔓 Unstake",
-    unstake_now: "✅ You can unstake now.",
-    unstake_locked: "🔒 Unstake available from:",
-    claim_title: "🎁 Claim reward",
-    claim_button: "Claim",
-    reward_ready: "🎯 Reward accrued:",
-    reward_none: "🎯 No reward accrued yet.",
-    contract_warning: "⚠️ Contract has no VLD tokens for rewards. Staking will fail until it is funded.",
-    wallet_connected: "Wallet: ",
-    error_wallet: "Error connecting wallet.",
-    error_claim: "Error during claim",
-    success_claim: "Reward claimed!",
-    error_unstake: "Error during unstake",
-    success_unstake: "Unstake completed!",
-    error_stake: "Error during stake",
-    success_stake: "Stake successful!",
-    invalid_amount: "Please enter a valid amount",
-    insufficient_balance: "Insufficient balance to stake!",
-    connect_first: "You must connect your wallet first!"
-  }
-};
-
-let currentLang = "it";
-
-function updateLanguage(lang) {
-  currentLang = lang;
-  document.querySelectorAll("[data-i18n]").forEach(el => {
-    const key = el.getAttribute("data-i18n");
-    if (translations[lang][key]) {
-      el.innerText = translations[lang][key];
+  // ====== i18n ======
+  const translations = {
+    it: {
+      lang_ita:"ITA", lang_eng:"ENG",
+      title:"Interfaccia VLD Staking 1.06",
+      connect:"🔗 Connetti Wallet",
+      stake_title:"🪙 Fai stake dei tuoi VLD",
+      stake_note:"⏳ Periodo minimo di blocco: 30 giorni",
+      stake_button:"Stake",
+      unstake_title:"🔓 Unstake",
+      unstake_button:"Unstake",
+      unstake_now:"✅ Puoi fare unstake ora.",
+      unstake_locked:"🔒 Unstake disponibile dal:",
+      claim_title:"🎁 Claim reward",
+      claim_button:"Claim",
+      reward_ready:"🎯 Reward maturata:",
+      reward_none:"🎯 Nessuna reward maturata al momento.",
+      contract_warning:"⚠️ Il contratto non ha token VLD per i reward. Lo staking fallirà finché non verrà finanziato.",
+      contract_funded:"💰 Fondi reward presenti nel contratto:",
+      wallet_connected:"Wallet: ",
+      balance:"Saldo",
+      staked:"In staking",
+      tvl:"Totale in staking (TVL)",
+      lock_period:"Periodo minimo di blocco",
+      days:"giorni",
+      install_metamask:"Installa Metamask!",
+      switch_failed:"Impossibile cambiare rete su MetaMask.",
+      error_wallet:"Errore nella connessione al wallet.",
+      error_claim:"Errore durante il claim",
+      success_claim:"Reward ricevuta!",
+      error_unstake:"Errore durante l'unstake",
+      success_unstake:"Unstake completato!",
+      error_stake:"Errore durante lo stake",
+      success_stake:"Stake eseguito!",
+      invalid_amount:"Inserisci un importo valido",
+      insufficient_balance:"Saldo insufficiente per fare stake!",
+      connect_first:"Devi prima connettere il wallet!"
+    },
+    en: {
+      lang_ita:"ITA", lang_eng:"ENG",
+      title:"VLD Staking Interface 1.06",
+      connect:"🔗 Connect Wallet",
+      stake_title:"🪙 Stake your VLD",
+      stake_note:"⏳ Minimum lock period: 30 days",
+      stake_button:"Stake",
+      unstake_title:"🔓 Unstake",
+      unstake_button:"Unstake",
+      unstake_now:"✅ You can unstake now.",
+      unstake_locked:"🔒 Unstake available from:",
+      claim_title:"🎁 Claim reward",
+      claim_button:"Claim",
+      reward_ready:"🎯 Reward accrued:",
+      reward_none:"🎯 No reward accrued yet.",
+      contract_warning:"⚠️ Contract has no VLD tokens for rewards. Staking will fail until it is funded.",
+      contract_funded:"💰 Reward funds in contract:",
+      wallet_connected:"Wallet: ",
+      balance:"Balance",
+      staked:"Staked",
+      tvl:"Total Staked (TVL)",
+      lock_period:"Minimum lock period",
+      days:"days",
+      install_metamask:"Install Metamask!",
+      switch_failed:"Failed to switch network in MetaMask.",
+      error_wallet:"Error connecting wallet.",
+      error_claim:"Error during claim",
+      success_claim:"Reward claimed!",
+      error_unstake:"Error during unstake",
+      success_unstake:"Unstake completed!",
+      error_stake:"Error during stake",
+      success_stake:"Stake successful!",
+      invalid_amount:"Please enter a valid amount",
+      insufficient_balance:"Insufficient balance to stake!",
+      connect_first:"You must connect your wallet first!"
     }
-  });
-}
-
-document.addEventListener("DOMContentLoaded", function () {
-  updateLanguage(currentLang);
-});
+  };
+  function updateLanguage(lang){
+    currentLang = lang;
+    localStorage.setItem("vld_lang", lang);
+    document.querySelectorAll("[data-i18n]").forEach(el=>{
+      const key = el.getAttribute("data-i18n");
+      if (translations[lang][key]) el.innerText = translations[lang][key];
+    });
+    // Also re-render dynamic labels with new language
+    refreshUserData();
+  }
+  document.addEventListener("DOMContentLoaded", function(){ updateLanguage(currentLang); });
 </script>
 </body>
 </html>
-
-
