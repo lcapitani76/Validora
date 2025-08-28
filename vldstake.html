@@ -3,31 +3,36 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>VLD Staking 1.0 + Unlock Date</title>
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet"/>
+<title>VLD Staking 1.0 (Unlock + i18n)</title>
 <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 <style>
   body {
-    font-family: 'Roboto', sans-serif;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
     background-color: #0b1120;
     color: #d0d0d0;
     margin: 0;
-    padding: 2rem;
+    padding: 2rem 1rem;
     text-align: center;
   }
-  h1 { font-size: 2.2rem; margin-bottom: 1rem; }
+  .topbar{
+    display:flex; justify-content:space-between; align-items:center;
+    max-width:880px; margin:0 auto 1rem auto;
+  }
+  .lang{ display:flex; gap:.5rem }
+  h1 { font-size: 2rem; margin: .25rem 0 1rem; }
   button {
     background-color: #3b82f6;
     color: white;
     border: none;
-    padding: 0.75rem 1.5rem;
-    margin: 0.5rem;
+    padding: 0.65rem 1.1rem;
+    margin: 0.25rem;
     border-radius: 8px;
-    font-weight: bold;
+    font-weight: 600;
     cursor: pointer;
   }
+  button:disabled { opacity:.6; cursor:not-allowed }
   input[type="number"] {
-    padding: 0.5rem;
+    padding: 0.55rem;
     font-size: 1rem;
     border-radius: 6px;
     border: 1px solid #334155;
@@ -35,44 +40,56 @@
     background:#0e1a33;
     color:#d0d0d0;
   }
-  .section { margin-top: 2rem; }
-  #account { margin-top: 1rem; font-style: italic; color: #94a3b8; word-break: break-all; }
+  .wrap { max-width:880px; margin:0 auto; }
+  .section { margin-top: 1.5rem; }
+  #account { margin-top: .5rem; font-style: italic; color: #94a3b8; word-break: break-all; }
   .note { color: #facc15; font-size: 0.95rem; margin-top: 0.5rem; }
   #warning { color: #f87171; font-size: 1rem; margin-top: 1rem; font-weight: bold; }
 </style>
 </head>
 <body>
-  <h1>VLD Staking 1.0 (step: Unlock)</h1>
-
-  <button id="connect">🔗 Connetti Wallet</button>
-  <p id="account"></p>
-  <p id="warning"></p>
-
-  <div class="section">
-    <h3>🪙 Fai stake dei tuoi VLD</h3>
-    <input id="amount" placeholder="Quantità VLD" type="number" step="any"/>
-    <button id="stake">Stake</button>
-    <p class="note" id="user-balance"></p>
-    <p class="note" id="user-staked"></p>
+  <div class="topbar">
+    <div>
+      <button id="connect" data-i18n="connect">🔗 Connetti Wallet</button>
+    </div>
+    <div class="lang">
+      <button id="btn-it">ITA</button>
+      <button id="btn-en">ENG</button>
+    </div>
   </div>
 
-  <div class="section">
-    <h3>🎁 Claim reward</h3>
-    <button id="claim">Claim</button>
-  </div>
+  <div class="wrap">
+    <h1 data-i18n="title">VLD Staking 1.0 (Unlock + i18n)</h1>
 
-  <div class="section">
-    <h3>🔓 Unstake</h3>
-    <button id="unstake" disabled>Unstake</button>
-    <p class="note" id="unstake-info"></p>
+    <p id="account"></p>
+    <p id="warning"></p>
+
+    <div class="section">
+      <h3 data-i18n="stake_title">🪙 Fai stake dei tuoi VLD</h3>
+      <input id="amount" placeholder="Quantità VLD" type="number" step="any"/>
+      <button id="stake" data-i18n="stake_btn">Stake</button>
+      <p class="note" id="user-balance"></p>
+      <p class="note" id="user-staked"></p>
+    </div>
+
+    <div class="section">
+      <h3 data-i18n="claim_title">🎁 Claim reward</h3>
+      <button id="claim" data-i18n="claim_btn">Claim</button>
+    </div>
+
+    <div class="section">
+      <h3 data-i18n="unstake_title">🔓 Unstake</h3>
+      <button id="unstake" data-i18n="unstake_btn" disabled>Unstake</button>
+      <p class="note" id="unstake-info"></p>
+    </div>
   </div>
 
 <script>
-// === Indirizzi (aggiorna se necessari) ===
+// === Addresses (aggiorna se diversi) ===
 const contractAddress = "0x9AA246af0B01D51D5a9e59c1DdECa6544B8A0198"; // Staking
 const tokenAddress    = "0xDF9387A2BF55F1e5b9f60599b6Ccbf6a5dA13A4b"; // VLD
 
-// === ABI minime, solo ciò che serve per questo step ===
+// === Minimal ABI for this step ===
 const stakingAbi = [
   "function stake(uint256 amount)",
   "function claimReward()",
@@ -88,6 +105,71 @@ const tokenAbi = [
   "function symbol() view returns (string)"
 ];
 
+// === i18n ===
+const translations = {
+  it: {
+    title:"VLD Staking 1.0 (Unlock + i18n)",
+    connect:"🔗 Connetti Wallet",
+    wallet:"Wallet: ",
+    stake_title:"🪙 Fai stake dei tuoi VLD",
+    stake_btn:"Stake",
+    claim_title:"🎁 Claim reward",
+    claim_btn:"Claim",
+    unstake_title:"🔓 Unstake",
+    unstake_btn:"Unstake",
+    balance:"Saldo VLD",
+    staked:"In staking",
+    none_staked:"Nessun importo in staking.",
+    unstake_from:"Unstake disponibile dal: ",
+    unstake_now:"✅ Puoi fare unstake ora.",
+    enter_amount:"Inserisci un importo valido.",
+    need_metamask:"Installa MetaMask per continuare.",
+    stake_done:"Stake eseguito!",
+    claim_done:"Reward ricevuta!",
+    unstake_done:"Unstake completato!",
+    err_wallet:"Errore nella connessione al wallet.",
+    err_stake:"Errore durante lo stake.",
+    err_claim:"Errore durante il claim.",
+    err_unstake:"Errore durante l'unstake."
+  },
+  en: {
+    title:"VLD Staking 1.0 (Unlock + i18n)",
+    connect:"🔗 Connect Wallet",
+    wallet:"Wallet: ",
+    stake_title:"🪙 Stake your VLD",
+    stake_btn:"Stake",
+    claim_title:"🎁 Claim reward",
+    claim_btn:"Claim",
+    unstake_title:"🔓 Unstake",
+    unstake_btn:"Unstake",
+    balance:"VLD Balance",
+    staked:"Staked",
+    none_staked:"No amount staked.",
+    unstake_from:"Unstake available from: ",
+    unstake_now:"✅ You can unstake now.",
+    enter_amount:"Please enter a valid amount.",
+    need_metamask:"Install MetaMask to continue.",
+    stake_done:"Stake successful!",
+    claim_done:"Reward claimed!",
+    unstake_done:"Unstake completed!",
+    err_wallet:"Error connecting to wallet.",
+    err_stake:"Error during stake.",
+    err_claim:"Error during claim.",
+    err_unstake:"Error during unstake."
+  }
+};
+
+let currentLang = localStorage.getItem("vld_lang") || "it";
+function t(k){ return translations[currentLang][k] || k; }
+function applyStaticTexts(){
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const key = el.getAttribute("data-i18n");
+    if(translations[currentLang][key]) el.innerText = translations[currentLang][key];
+  });
+  // dynamic labels refreshed next
+}
+
+// === Web3 state ===
 let provider, signer, staking, token, user, tokenDecimals = 18, symbol = "VLD";
 
 function fmt(bn){ try { return ethers.utils.formatUnits(bn, tokenDecimals); } catch { return String(bn); } }
@@ -110,7 +192,7 @@ async function ensureBSC(){
           }]
         });
       } catch (addErr) {
-        alert('Seleziona manualmente la rete "BNB Smart Chain" in MetaMask per continuare.');
+        alert('BNB Smart Chain non selezionata.');
       }
     }
   }
@@ -126,30 +208,28 @@ async function refresh(){
       staking.lockPeriod()
     ]);
 
-    // Tuple tolerant
     const amount    = st.amount ?? st[0] ?? ethers.constants.Zero;
     const startTime = st.startTime ?? st[1] ?? ethers.constants.Zero;
 
-    document.getElementById("user-balance").innerText = "Saldo VLD: " + fmt(bal);
-    document.getElementById("user-staked").innerText  = "In staking: " + fmt(amount) + " " + symbol;
+    document.getElementById("user-balance").innerText = `${t('balance')}: ${fmt(bal)}`;
+    document.getElementById("user-staked").innerText  = `${t('staked')}: ${fmt(amount)} ${symbol}`;
 
-    // === Aggiunta STEP: Data di unlock ===
+    // Unlock date logic (added)
     const unstakeBtn = document.getElementById("unstake");
     const ui = document.getElementById("unstake-info");
 
     if (ethers.BigNumber.from(amount).isZero()){
-      ui.innerText = "Nessun importo in staking.";
+      ui.innerText = t('none_staked');
       unstakeBtn.disabled = true;
     } else {
-      // usiamo il timestamp del blocco per 'adesso'
       const block = await signer.provider.getBlock("latest");
       const now = block.timestamp;
       const unlockTime = Number(startTime) + Number(lp);
       if (now < unlockTime){
-        ui.innerText = "Unstake disponibile dal: " + new Date(unlockTime * 1000).toLocaleString();
+        ui.innerText = t('unstake_from') + new Date(unlockTime * 1000).toLocaleString();
         unstakeBtn.disabled = true;
       } else {
-        ui.innerText = "✅ Puoi fare unstake ora.";
+        ui.innerText = t('unstake_now');
         unstakeBtn.disabled = false;
       }
     }
@@ -158,15 +238,19 @@ async function refresh(){
   }
 }
 
+// === Event handlers ===
+document.getElementById("btn-it").onclick = ()=>{ currentLang="it"; localStorage.setItem("vld_lang","it"); applyStaticTexts(); refresh(); };
+document.getElementById("btn-en").onclick = ()=>{ currentLang="en"; localStorage.setItem("vld_lang","en"); applyStaticTexts(); refresh(); };
+
 document.getElementById("connect").onclick = async () => {
   try{
-    if (!window.ethereum) return alert("Installa MetaMask per continuare.");
+    if (!window.ethereum) return alert(t('need_metamask'));
     provider = new ethers.providers.Web3Provider(window.ethereum);
     await provider.send("eth_requestAccounts", []);
     await ensureBSC();
     signer = provider.getSigner();
     user = await signer.getAddress();
-    document.getElementById("account").innerText = "Wallet: " + user;
+    document.getElementById("account").innerText = t('wallet') + user;
 
     staking = new ethers.Contract(contractAddress, stakingAbi, signer);
     token   = new ethers.Contract(tokenAddress, tokenAbi, signer);
@@ -174,34 +258,31 @@ document.getElementById("connect").onclick = async () => {
     try { symbol = await token.symbol(); } catch { symbol = "VLD"; }
 
     await refresh();
-    // auto refresh leggero
     setInterval(refresh, 20000);
   }catch(e){
     console.error(e);
-    alert("Errore nella connessione al wallet.");
+    alert(t('err_wallet'));
   }
 };
 
 document.getElementById("stake").onclick = async () => {
   try{
     const v = (document.getElementById("amount").value || "").trim();
-    if (!v) return alert("Inserisci un importo valido.");
+    if (!v) return alert(t('enter_amount'));
     const amount = ethers.utils.parseUnits(v, tokenDecimals);
 
-    // approve se necessario
     const allowance = await token.allowance(user, contractAddress);
     if (allowance.lt(amount)){
       const txA = await token.approve(contractAddress, ethers.constants.MaxUint256);
       await txA.wait();
     }
-
     let gas; try{ gas = await staking.estimateGas.stake(amount); } catch{}
     const tx = await staking.stake(amount, gas ? { gasLimit: gas.mul(115).div(100) } : {});
     await tx.wait();
-    alert("Stake eseguito!");
+    alert(t('stake_done'));
     document.getElementById("amount").value = "";
     await refresh();
-  }catch(e){ console.error(e); alert("Errore durante lo stake."); }
+  }catch(e){ console.error(e); alert(t('err_stake')); }
 };
 
 document.getElementById("claim").onclick = async () => {
@@ -209,9 +290,9 @@ document.getElementById("claim").onclick = async () => {
     let gas; try{ gas = await staking.estimateGas.claimReward(); } catch{}
     const tx = await staking.claimReward(gas ? { gasLimit: gas.mul(115).div(100) } : {});
     await tx.wait();
-    alert("Reward ricevuta!");
+    alert(t('claim_done'));
     await refresh();
-  }catch(e){ console.error(e); alert("Errore durante il claim."); }
+  }catch(e){ console.error(e); alert(t('err_claim')); }
 };
 
 document.getElementById("unstake").onclick = async () => {
@@ -219,10 +300,13 @@ document.getElementById("unstake").onclick = async () => {
     let gas; try{ gas = await staking.estimateGas.unstake(); } catch{}
     const tx = await staking.unstake(gas ? { gasLimit: gas.mul(115).div(100) } : {});
     await tx.wait();
-    alert("Unstake completato!");
+    alert(t('unstake_done'));
     await refresh();
-  }catch(e){ console.error(e); alert("Errore durante l'unstake."); }
+  }catch(e){ console.error(e); alert(t('err_unstake')); }
 };
+
+// init i18n
+applyStaticTexts();
 </script>
 </body>
 </html>
