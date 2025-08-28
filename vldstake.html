@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>VLD Staking 1.0 (Unlock + i18n)</title>
+<title>VLD Staking 1.0 (Unlock + i18n, no-estimateGas)</title>
 <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 <style>
   body {
@@ -14,10 +14,8 @@
     padding: 2rem 1rem;
     text-align: center;
   }
-  .topbar{
-    display:flex; justify-content:space-between; align-items:center;
-    max-width:880px; margin:0 auto 1rem auto;
-  }
+  .wrap { max-width:880px; margin:0 auto; }
+  .topbar{ display:flex; justify-content:space-between; align-items:center; max-width:880px; margin:0 auto 1rem }
   .lang{ display:flex; gap:.5rem }
   h1 { font-size: 2rem; margin: .25rem 0 1rem; }
   button {
@@ -40,11 +38,9 @@
     background:#0e1a33;
     color:#d0d0d0;
   }
-  .wrap { max-width:880px; margin:0 auto; }
   .section { margin-top: 1.5rem; }
   #account { margin-top: .5rem; font-style: italic; color: #94a3b8; word-break: break-all; }
   .note { color: #facc15; font-size: 0.95rem; margin-top: 0.5rem; }
-  #warning { color: #f87171; font-size: 1rem; margin-top: 1rem; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -59,10 +55,9 @@
   </div>
 
   <div class="wrap">
-    <h1 data-i18n="title">VLD Staking 1.0 (Unlock + i18n)</h1>
+    <h1 data-i18n="title">VLD Staking 1.0 (Unlock + i18n, no-estimateGas)</h1>
 
     <p id="account"></p>
-    <p id="warning"></p>
 
     <div class="section">
       <h3 data-i18n="stake_title">🪙 Fai stake dei tuoi VLD</h3>
@@ -89,7 +84,7 @@
 const contractAddress = "0x9AA246af0B01D51D5a9e59c1DdECa6544B8A0198"; // Staking
 const tokenAddress    = "0xDF9387A2BF55F1e5b9f60599b6Ccbf6a5dA13A4b"; // VLD
 
-// === Minimal ABI for this step ===
+// === Minimal ABI (come l'originale, più funzioni per unlock) ===
 const stakingAbi = [
   "function stake(uint256 amount)",
   "function claimReward()",
@@ -108,7 +103,7 @@ const tokenAbi = [
 // === i18n ===
 const translations = {
   it: {
-    title:"VLD Staking 1.0 (Unlock + i18n)",
+    title:"VLD Staking 1.0 (Unlock + i18n, no-estimateGas)",
     connect:"🔗 Connetti Wallet",
     wallet:"Wallet: ",
     stake_title:"🪙 Fai stake dei tuoi VLD",
@@ -130,10 +125,11 @@ const translations = {
     err_wallet:"Errore nella connessione al wallet.",
     err_stake:"Errore durante lo stake.",
     err_claim:"Errore durante il claim.",
-    err_unstake:"Errore durante l'unstake."
+    err_unstake:"Errore durante l'unstake.",
+    insufficient:"Saldo insufficiente."
   },
   en: {
-    title:"VLD Staking 1.0 (Unlock + i18n)",
+    title:"VLD Staking 1.0 (Unlock + i18n, no-estimateGas)",
     connect:"🔗 Connect Wallet",
     wallet:"Wallet: ",
     stake_title:"🪙 Stake your VLD",
@@ -155,7 +151,8 @@ const translations = {
     err_wallet:"Error connecting to wallet.",
     err_stake:"Error during stake.",
     err_claim:"Error during claim.",
-    err_unstake:"Error during unstake."
+    err_unstake:"Error during unstake.",
+    insufficient:"Insufficient balance."
   }
 };
 
@@ -164,35 +161,34 @@ function t(k){ return translations[currentLang][k] || k; }
 function applyStaticTexts(){
   document.querySelectorAll("[data-i18n]").forEach(el=>{
     const key = el.getAttribute("data-i18n");
-    if(translations[currentLang][key]) el.innerText = translations[currentLang][key];
+    if (translations[currentLang][key]) el.innerText = translations[currentLang][key];
   });
-  // dynamic labels refreshed next
 }
 
 // === Web3 state ===
 let provider, signer, staking, token, user, tokenDecimals = 18, symbol = "VLD";
 
-function fmt(bn){ try { return ethers.utils.formatUnits(bn, tokenDecimals); } catch { return String(bn); } }
+function fmt(bn){ try{ return ethers.utils.formatUnits(bn, tokenDecimals); }catch{return String(bn);} }
 
 async function ensureBSC(){
   const net = await provider.getNetwork();
   if (net.chainId !== 56){
     try {
-      await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] });
+      await window.ethereum.request({ method:"wallet_switchEthereumChain", params:[{ chainId:"0x38" }]});
     } catch (e) {
       try {
         await window.ethereum.request({
           method: "wallet_addEthereumChain",
           params: [{
-            chainId: "0x38",
-            chainName: "BNB Smart Chain",
-            nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
-            rpcUrls: ["https://bsc-dataseed.binance.org/"],
-            blockExplorerUrls: ["https://bscscan.com/"]
+            chainId:"0x38",
+            chainName:"BNB Smart Chain",
+            nativeCurrency:{ name:"BNB", symbol:"BNB", decimals:18 },
+            rpcUrls:["https://bsc-dataseed.binance.org/"],
+            blockExplorerUrls:["https://bscscan.com/"]
           }]
         });
-      } catch (addErr) {
-        alert('BNB Smart Chain non selezionata.');
+      } catch (err) {
+        alert("Seleziona manualmente la rete BSC in MetaMask.");
       }
     }
   }
@@ -200,7 +196,6 @@ async function ensureBSC(){
 
 async function refresh(){
   if (!staking || !token || !user) return;
-
   try{
     const [bal, st, lp] = await Promise.all([
       token.balanceOf(user),
@@ -211,10 +206,9 @@ async function refresh(){
     const amount    = st.amount ?? st[0] ?? ethers.constants.Zero;
     const startTime = st.startTime ?? st[1] ?? ethers.constants.Zero;
 
-    document.getElementById("user-balance").innerText = `${t('balance')}: ${fmt(bal)}`;
+    document.getElementById("user-balance").innerText = `${t('balance')}: ${fmt(bal)} ${symbol}`;
     document.getElementById("user-staked").innerText  = `${t('staked')}: ${fmt(amount)} ${symbol}`;
 
-    // Unlock date logic (added)
     const unstakeBtn = document.getElementById("unstake");
     const ui = document.getElementById("unstake-info");
 
@@ -265,44 +259,59 @@ document.getElementById("connect").onclick = async () => {
   }
 };
 
+// === NO estimateGas anywhere (faithful to original behavior) ===
 document.getElementById("stake").onclick = async () => {
   try{
     const v = (document.getElementById("amount").value || "").trim();
     if (!v) return alert(t('enter_amount'));
-    const amount = ethers.utils.parseUnits(v, tokenDecimals);
+    const amount = ethers.utils.parseUnits(v.replace(",", "."), tokenDecimals);
+
+    const bal = await token.balanceOf(user);
+    if (bal.lt(amount)) return alert(t('insufficient'));
 
     const allowance = await token.allowance(user, contractAddress);
     if (allowance.lt(amount)){
       const txA = await token.approve(contractAddress, ethers.constants.MaxUint256);
       await txA.wait();
+      // extra micro delay to avoid flaky RPCs
+      await new Promise(r => setTimeout(r, 500));
     }
-    let gas; try{ gas = await staking.estimateGas.stake(amount); } catch{}
-    const tx = await staking.stake(amount, gas ? { gasLimit: gas.mul(115).div(100) } : {});
+
+    // Direct call, no estimateGas
+    const tx = await staking.stake(amount);
     await tx.wait();
+
     alert(t('stake_done'));
     document.getElementById("amount").value = "";
     await refresh();
-  }catch(e){ console.error(e); alert(t('err_stake')); }
+  }catch(e){
+    console.error(e);
+    alert(t('err_stake'));
+  }
 };
 
 document.getElementById("claim").onclick = async () => {
   try{
-    let gas; try{ gas = await staking.estimateGas.claimReward(); } catch{}
-    const tx = await staking.claimReward(gas ? { gasLimit: gas.mul(115).div(100) } : {});
+    const tx = await staking.claimReward();
     await tx.wait();
     alert(t('claim_done'));
     await refresh();
-  }catch(e){ console.error(e); alert(t('err_claim')); }
+  }catch(e){
+    console.error(e);
+    alert(t('err_claim'));
+  }
 };
 
 document.getElementById("unstake").onclick = async () => {
   try{
-    let gas; try{ gas = await staking.estimateGas.unstake(); } catch{}
-    const tx = await staking.unstake(gas ? { gasLimit: gas.mul(115).div(100) } : {});
+    const tx = await staking.unstake();
     await tx.wait();
     alert(t('unstake_done'));
     await refresh();
-  }catch(e){ console.error(e); alert(t('err_unstake')); }
+  }catch(e){
+    console.error(e);
+    alert(t('err_unstake'));
+  }
 };
 
 // init i18n
