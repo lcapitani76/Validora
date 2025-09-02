@@ -125,8 +125,13 @@
   var ethers = window.ethers;
 
   // ==== Fixed configuration (hidden) ====
-  var CFG = {$1bscscanKey: ""$2};
-
+ var CFG = {
+  chainId: 97, // BSC Testnet
+  fileCert: "0x03a5bd09f887463a5B91d4033d39199b901Cf312",
+  vld: "0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b",
+  deployBlock: 63965484,
+  bscscanKey: "" // opzionale: puoi lasciarlo vuoto e usare la key salvata in localStorage
+};
   // ==== i18n ====
   var I18N = {
     en: {
