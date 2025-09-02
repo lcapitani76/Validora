@@ -42,11 +42,14 @@
       <h1 data-i18n="title">Validora – File Certifier</h1>
       <div class="sub" data-i18n="subtitle">Certify your file's keccak256 hash on BSC using VLD.</div>
     </div>
-    <div class="btns">
-      <button id="btn-lang-en" class="secondary">EN</button>
-      <button id="btn-lang-it" class="secondary">IT</button>
-      <button id="btn-connect" data-i18n="connect">Connect Wallet</button>
-      <button id="btn-disconnect" class="secondary" data-i18n="disconnect" disabled>Disconnect</button>
+    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+      <div class="btns">
+        <button id="btn-lang-en" class="secondary">EN</button>
+        <button id="btn-lang-it" class="secondary">IT</button>
+        <button id="btn-connect" data-i18n="connect">Connect Wallet</button>
+        <button id="btn-disconnect" class="secondary" data-i18n="disconnect" disabled>Disconnect</button>
+      </div>
+      <div id="wallet-info" class="small muted mono" style="display:none;"></div>
     </div>
   </header>
 
@@ -115,9 +118,9 @@
   // ==== Fixed configuration (hidden) ====
   var CFG = {
     chainId: 97, // BSC Testnet
-    fileCert: "0x32B0A57C00FCD8B0334a28F5E571037e205369dc",
+    fileCert: "0x03a5bd09f887463a5B91d4033d39199b901Cf312",
     vld: "0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b",
-    deployBlock: 0 // set to the FileCertifier deploy block if you know it
+    deployBlock: 63965484
   };
 
   // ==== i18n ====
@@ -212,6 +215,8 @@
   function shortHash(h){ if (!h) return ''; return h.slice(0,10) + '…' + h.slice(-6); }
   function formatBytes(n){ var x=Number(n)||0; if (x<1024) return x+" B"; var k=x/1024; if (k<1024) return k.toFixed(2)+" KB"; var m=k/1024; if (m<1024) return m.toFixed(2)+" MB"; var g=m/1024; return g.toFixed(2)+" GB"; }
   function explorerBase(chainId){ if (chainId===97) return 'https://testnet.bscscan.com'; if (chainId===56) return 'https://bscscan.com'; return 'https://bscscan.com'; }
+  function networkLabel(chainId){ if (chainId===97) return 'BSC Testnet (97)'; if (chainId===56) return 'BSC Mainnet (56)'; return 'Chain ' + chainId; }
+  function updateWalletInfo(){ var w = el('wallet-info'); if (!w) return; if (state.account){ w.style.display='block'; w.textContent = state.account + ' • ' + networkLabel(state.chainId); } else { w.style.display='none'; w.textContent=''; } }
 
   var state = {
     provider:null, signer:null, account:null, fc:null, vld:null, feeQuote: ethers.constants.Zero, decimals:18, chainId:null,
@@ -307,9 +312,10 @@
     var net = await state.provider.getNetwork();
     state.chainId = Number(net.chainId);
     updateButtons();
+    updateWalletInfo();
     if (state.chainId !== CFG.chainId){ showNetWarning(true); } else { showNetWarning(false); await initContracts(); var items = await fetchOnChainHistory(state.account); setHistory(items); }
   }
-  async function disconnect(){ state.provider=null; state.signer=null; state.account=null; state.fc=null; state.vld=null; state.feeQuote=ethers.constants.Zero; state.chainId=null; updateButtons(); showNetWarning(false); setHistory([]); }
+  async function disconnect(){ state.provider=null; state.signer=null; state.account=null; state.fc=null; state.vld=null; state.feeQuote=ethers.constants.Zero; state.chainId=null; updateButtons(); updateWalletInfo(); showNetWarning(false); setHistory([]); }
 
   async function initContracts(){ state.fc = new ethers.Contract(CFG.fileCert, FILE_CERTIFIER_ABI, state.signer); state.vld = new ethers.Contract(CFG.vld, ERC20_ABI, state.signer); try{ state.decimals = await state.vld.decimals(); }catch(e){} }
 
