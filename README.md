@@ -10,12 +10,12 @@
 |------------------|----------------------------------------------|--------------|
 | VLD Token        | `0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b` | BSC Testnet  |
 | Staking Contract | `0x86F11913FA237C71917bEBBC05ca778e20Cd31A7` | BSC Testnet  |
-
+| File Certifier   | `0x32B0A57C00FCD8B0334a28F5E571037e205369dc` | BSC Testnet  |
 ---
 
 ## ⚙️ Key Features
 
-### 📜 File Certification (Coming Soon)
+### 📜 File Certification 
 - SHA256 hash of the file stored on-chain
 - Timestamp and wallet address linked to the certification
 - Public and verifiable smart contract events
