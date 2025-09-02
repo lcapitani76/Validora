@@ -227,37 +227,54 @@
   function showNetWarning(show){ var banner = el('net-banner'); if (show){ banner.style.display='block'; banner.textContent = t('networkWarn'); } else { banner.style.display='none'; banner.textContent=''; } }
 
   // ==== On-chain history fetch (only by submitter) ====
+  async function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
   async function fetchOnChainHistory(submitter){
-    if (!state.provider) return [];
-    var iface = new ethers.utils.Interface(FILE_CERTIFIER_ABI);
-    var topic = iface.getEventTopic('FileCertified');
-    var paddedAddr = ethers.utils.hexZeroPad((submitter||'').toLowerCase(), 32);
-    var latest = await state.provider.getBlockNumber();
-    var start = CFG.deployBlock && CFG.deployBlock>0 ? CFG.deployBlock : Math.max(0, latest - 300000);
-    var step = 20000;
-    var logs = [];
-    for (var from=start; from<=latest; from += step){
-      var to = Math.min(latest, from + step - 1);
-      try{
-        var chunk = await state.provider.getLogs({ address: CFG.fileCert, fromBlock: from, toBlock: to, topics: [topic, null, paddedAddr] });
-        if (chunk && chunk.length) logs = logs.concat(chunk);
-      }catch(e){ /* ignore chunk errors */ }
+    try{
+      if (!state.provider || !state.fc || !submitter) return [];
+      var iface = new ethers.utils.Interface(FILE_CERTIFIER_ABI);
+      var topic = iface.getEventTopic('FileCertified');
+      var addrTopic = ethers.utils.hexZeroPad(submitter, 32);
+
+      var latest = await state.provider.getBlockNumber();
+      var start = CFG.deployBlock && CFG.deployBlock>0 ? CFG.deployBlock : Math.max(0, latest - 200000);
+      var step = 5000; // chunk ridotto per RPC BSC (evita -32603)
+      var logs = [];
+
+      for (var from=start; from<=latest; from += step){
+        var to = Math.min(latest, from + step - 1);
+        var tries = 0; var ok = false;
+        while (!ok && tries < 3){
+          try{
+            var chunk = await state.provider.getLogs({ address: CFG.fileCert, fromBlock: from, toBlock: to, topics: [topic, null, addrTopic] });
+            if (chunk && chunk.length) logs = logs.concat(chunk);
+            ok = true;
+          }catch(e){
+            tries++;
+            console.warn('getLogs failed', {from,to,tries,msg:e && e.message});
+            await sleep(200 * tries); // backoff graduale
+          }
+        }
+        await sleep(80); // piccola pausa per non saturare RPC
+      }
+
+      var out = [];
+      var tsCache = {};
+      for (var i=0;i<logs.length;i++){
+        var l = logs[i];
+        try{
+          var parsed = iface.parseLog(l);
+          var bn = l.blockNumber;
+          var ts = tsCache[bn];
+          if (!ts){ var blk = await state.provider.getBlock(bn); ts = blk ? blk.timestamp*1000 : Date.now(); tsCache[bn]=ts; }
+          out.push({ tx: l.transactionHash, hash: parsed.args.fileHash, size: parsed.args.size.toNumber ? parsed.args.size.toNumber() : parsed.args.size, uri: parsed.args.uri, fee: parsed.args.feePaid, fileName: '', time: ts, chainId: state.chainId });
+        }catch(e){ /* skip parse errors */ }
+      }
+      out.sort(function(a,b){ return (b.time||0)-(a.time||0); });
+      return out;
+    }catch(err){
+      console.warn('history fetch error', err && err.message ? err.message : err);
+      return [];
     }
-    var out = [];
-    var tsCache = {};
-    for (var i=0;i<logs.length;i++){
-      var l = logs[i];
-      try{
-        var parsed = iface.parseLog(l);
-        var bn = l.blockNumber;
-        var ts = tsCache[bn];
-        if (!ts){ var blk = await state.provider.getBlock(bn); ts = blk ? blk.timestamp*1000 : Date.now(); tsCache[bn]=ts; }
-        out.push({ tx: l.transactionHash, hash: parsed.args.fileHash, size: parsed.args.size.toNumber ? parsed.args.size.toNumber() : parsed.args.size, uri: parsed.args.uri, fee: parsed.args.feePaid, fileName: '', time: ts, chainId: state.chainId });
-      }catch(e){ }
-    }
-    // sort desc by time
-    out.sort(function(a,b){ return (b.time||0)-(a.time||0); });
-    return out;
   }
 
   function setHistory(items){ state.history = items || []; state.page = 1; renderHistory(); }
