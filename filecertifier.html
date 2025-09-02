@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Validora – File Certifier 1.0</title>
+  <title>Validora – File Certifier dApp</title>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <style>
     :root { --bg:#0b1120; --panel:#111827; --muted:#9ca3af; --text:#e5e7eb; --accent:#3b82f6; --accent-2:#22c55e; --warn:#f59e0b; --border:#1f2937; --card:#0f172a; }
@@ -39,7 +39,7 @@
 <body>
   <header class="spaced">
     <div>
-      <h1 data-i18n="title">Validora – File Certifier 1.0</h1>
+      <h1 data-i18n="title">Validora – File Certifier</h1>
       <div class="sub" data-i18n="subtitle">Certify your file's keccak256 hash on BSC using VLD.</div>
     </div>
     <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
@@ -120,13 +120,14 @@
     chainId: 97, // BSC Testnet
     fileCert: "0x03a5bd09f887463a5B91d4033d39199b901Cf312",
     vld: "0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b",
-    deployBlock: 63965484
+    deployBlock: 63965484,
+    bscscanKey: "" // opzionale: inserisci qui la tua API key per fallback
   };
 
   // ==== i18n ====
   var I18N = {
     en: {
-      title:"Validora – File Certifier 1.0",
+      title:"Validora – File Certifier",
       subtitle:"Certify your file's keccak256 hash on BSC using VLD.",
       connect:"Connect Wallet",
       disconnect:"Disconnect",
@@ -154,7 +155,7 @@
       of:"of"
     },
     it: {
-      title:"Validora – Certificatore File 1.0",
+      title:"Validora – Certificatore File",
       subtitle:"Certifica l'hash keccak256 del tuo file su BSC usando VLD.",
       connect:"Connetti Wallet",
       disconnect:"Disconnetti",
@@ -215,6 +216,9 @@
   function shortHash(h){ if (!h) return ''; return h.slice(0,10) + '…' + h.slice(-6); }
   function formatBytes(n){ var x=Number(n)||0; if (x<1024) return x+" B"; var k=x/1024; if (k<1024) return k.toFixed(2)+" KB"; var m=k/1024; if (m<1024) return m.toFixed(2)+" MB"; var g=m/1024; return g.toFixed(2)+" GB"; }
   function explorerBase(chainId){ if (chainId===97) return 'https://testnet.bscscan.com'; if (chainId===56) return 'https://bscscan.com'; return 'https://bscscan.com'; }
+  function apiBase(chainId){ return chainId===97 ? 'https://api-testnet.bscscan.com/api' : 'https://api.bscscan.com/api'; }
+  function networkLabel(chainId){ if (chainId===97) return 'BSC Testnet (97)'; if (chainId===56) return 'BSC Mainnet (56)'; return 'Chain ' + chainId; }
+  function updateWalletInfo(){ var w = el('wallet-info'); if (!w) return; if (state.account){ w.style.display='block'; w.textContent = state.account + ' • ' + networkLabel(state.chainId); } else { w.style.display='none'; w.textContent=''; } }
   function networkLabel(chainId){ if (chainId===97) return 'BSC Testnet (97)'; if (chainId===56) return 'BSC Mainnet (56)'; return 'Chain ' + chainId; }
   function updateWalletInfo(){ var w = el('wallet-info'); if (!w) return; if (state.account){ w.style.display='block'; w.textContent = state.account + ' • ' + networkLabel(state.chainId); } else { w.style.display='none'; w.textContent=''; } }
 
@@ -243,6 +247,7 @@
       var minStep = 256;              // non scendere sotto
       var pause = 120;                // ms tra richieste
       var logs = [];
+      var failures = 0;
 
       for (var from=start; from<=latest;){
         var to = Math.min(latest, from + step - 1);
@@ -253,14 +258,19 @@
             if (chunk && chunk.length) logs = logs.concat(chunk);
             ok = true;
           }catch(e){
-            tries++;
+            tries++; failures++;
             console.warn('getLogs failed', {from,to,tries,msg:e && e.message});
-            if (isRpcBusy(e) && step > minStep){ step = Math.max(minStep, Math.floor(step/2)); }
-            await sleep(200 * tries);
+            if ((e && (e.code === -32603 || /rate|busy|timeout|exceeded/i.test(e.message||''))) && step > minStep){ step = Math.max(minStep, Math.floor(step/2)); }
+            await new Promise(r=>setTimeout(r, 200 * tries));
+            if (failures >= 6) { // troppi errori ⇒ prova fallback
+              console.warn('Switching to BscScan fallback...');
+              var fb = await fetchViaBscScan(submitter, start, latest);
+              return fb;
+            }
           }
         }
         from = to + 1;
-        await sleep(pause);
+        await new Promise(r=>setTimeout(r, pause));
       }
 
       var out = [];
@@ -281,6 +291,43 @@
       console.warn('history fetch error', err && err.message ? err.message : err);
       return [];
     }
+  }
+
+  async function fetchViaBscScan(submitter, fromBlock, toBlock){
+    try{
+      if (!submitter) return [];
+      var base = apiBase(state.chainId||97);
+      var iface = new ethers.utils.Interface(FILE_CERTIFIER_ABI);
+      var topic0 = iface.getEventTopic('FileCertified');
+      var addrNorm = ethers.utils.getAddress(submitter);
+      var addrTopic = ethers.utils.hexZeroPad(addrNorm.toLowerCase(), 32);
+      var latest = toBlock || (await state.provider.getBlockNumber());
+      var from = (fromBlock || CFG.deployBlock || 0);
+      var url = base + '?module=logs&action=getLogs'
+        + '&address=' + encodeURIComponent(CFG.fileCert)
+        + '&fromBlock=' + from
+        + '&toBlock=' + latest
+        + '&topic0=' + topic0
+        + '&topic2=' + addrTopic
+        + (CFG.bscscanKey ? ('&apikey=' + encodeURIComponent(CFG.bscscanKey)) : 'QMNAE82JDR9D3BEYUH5U8GGET8IUI8A87C');
+      var res = await fetch(url).then(function(r){ return r.json(); });
+      if (!res || res.status !== '1' || !res.result) return [];
+      var logs = res.result;
+      var out = [];
+      var tsCache = {};
+      for (var i=0;i<logs.length;i++){
+        var l = logs[i];
+        try{
+          var parsed = iface.parseLog({ topics: l.topics, data: l.data });
+          var bn = parseInt(l.blockNumber);
+          var ts = l.timeStamp ? (parseInt(l.timeStamp, 16) * 1000) : (tsCache[bn] || 0);
+          if (!ts){ var blk = await state.provider.getBlock(bn); ts = blk ? blk.timestamp*1000 : Date.now(); tsCache[bn]=ts; }
+          out.push({ tx: l.transactionHash, hash: parsed.args.fileHash, size: parsed.args.size.toNumber ? parsed.args.size.toNumber() : parsed.args.size, uri: parsed.args.uri, fee: parsed.args.feePaid, fileName: '', time: ts, chainId: state.chainId });
+        }catch(e){ }
+      }
+      out.sort(function(a,b){ return (b.time||0)-(a.time||0); });
+      return out;
+    }catch(e){ console.warn('bscscan fallback error', e && e.message ? e.message : e); return []; }
   }
 
   function setHistory(items){ state.history = items || []; state.page = 1; renderHistory(); }
