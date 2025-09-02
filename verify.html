@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Validora – Verify Certification</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <style>
+    :root { --bg:#0b1120; --panel:#111827; --muted:#9ca3af; --text:#e5e7eb; --accent:#3b82f6; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; --border:#1f2937; --card:#0f172a; }
+    * { box-sizing: border-box; }
+    body { margin:0; padding:24px; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background: radial-gradient(1200px 800px at 100% -10%, #111827 0%, var(--bg) 40%); color: var(--text); }
+    h1 { font-size: 28px; margin:0 0 4px; }
+    .sub { color: var(--muted); margin-bottom: 16px; }
+    .card { background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)); border:1px solid var(--border); border-radius:16px; padding:16px; }
+    .spaced { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .btns { display:flex; gap:10px; flex-wrap:wrap; }
+    button { background: var(--accent); border:none; color:white; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600; }
+    button.secondary { background: transparent; border:1px solid var(--border); color: var(--text); }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+    input { width:100%; background: var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 12px; color: var(--text); }
+    label { display:block; font-size:12px; color: var(--muted); margin-bottom:6px; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .pill { display:inline-block; border:1px dashed var(--border); border-radius:999px; padding:4px 8px; font-size:12px; color:var(--muted); }
+    .status { padding:10px 12px; border-radius:12px; font-weight:700; display:inline-block; }
+    .ok { background: rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.4); }
+    .warn { background: rgba(245,158,11,.15); border:1px solid rgba(245,158,11,.4); }
+    .err { background: rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.4); }
+    a { color:#93c5fd; text-decoration:none; }
+    a:hover { text-decoration:underline; }
+  </style>
+</head>
+<body>
+  <header class="spaced">
+    <div>
+      <h1 data-i18n="title">Validora – Verify Certification</h1>
+      <div class="sub" data-i18n="subtitle">Check if a file (keccak256) is certified on BSC Testnet.</div>
+    </div>
+    <div class="btns">
+      <button id="btn-lang-en" class="secondary">EN</button>
+      <button id="btn-lang-it" class="secondary">IT</button>
+    </div>
+  </header>
+
+  <section class="card">
+    <h2 style="margin-top:0" data-i18n="verifyTitle">Verify a file</h2>
+    <div class="row">
+      <div>
+        <label data-i18n="fileLabel">Select file</label>
+        <input id="file-input" type="file" />
+      </div>
+      <div>
+        <label data-i18n="hashLabel">Or paste hash (0x…)</label>
+        <input id="hash-input" placeholder="0x..." class="mono" />
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px;">
+      <div>
+        <label data-i18n="outHash">Computed hash</label>
+        <input id="hash-out" class="mono" readonly />
+      </div>
+      <div>
+        <label data-i18n="outSize">File size (bytes)</label>
+        <input id="size-out" class="mono" readonly />
+      </div>
+    </div>
+
+    <div class="btns" style="margin-top:12px;">
+      <button id="btn-hash" class="secondary" data-i18n="btnHash">Compute hash</button>
+      <button id="btn-verify" data-i18n="btnVerify">Verify on-chain</button>
+    </div>
+    <div class="sub" style="margin-top:8px;" data-i18n="privacyNote">Hashing happens locally in your browser.</div>
+  </section>
+
+  <section class="card" style="margin-top:16px;">
+    <h3 style="margin-top:0;" data-i18n="resultTitle">Result</h3>
+    <div id="result-status"></div>
+    <div id="result-body" style="margin-top:10px;"></div>
+  </section>
+
+<script>
+(function(){
+  'use strict';
+  var ethers = window.ethers;
+
+  // ==== Config (read-only RPC) ====
+  var CFG = {
+    chainId: 97,
+    rpcUrl: "https://data-seed-prebsc-1-s1.binance.org:8545/",
+    fileCert: "0x03a5bd09f887463a5B91d4033d39199b901Cf312",
+    explorer: "https://testnet.bscscan.com"
+  };
+
+  // ==== i18n ====
+  var I18N = {
+    en: {
+      title:"Validora – Verify Certification",
+      subtitle:"Check if a file (keccak256) is certified on BSC Testnet.",
+      verifyTitle:"Verify a file",
+      fileLabel:"Select file",
+      hashLabel:"Or paste hash (0x…)",
+      outHash:"Computed hash",
+      outSize:"File size (bytes)",
+      btnHash:"Compute hash",
+      btnVerify:"Verify on-chain",
+      privacyNote:"Hashing happens locally in your browser.",
+      resultTitle:"Result",
+      stYes:"Certified ✅",
+      stNo:"Not certified ❌",
+      stRevoked:"Certified but revoked ⚠️",
+      submitter:"Submitter",
+      timestamp:"Timestamp",
+      sizeStored:"Stored size",
+      sizeMatch:"Size matches file",
+      uri:"URI",
+      viewAddr:"View on BscScan",
+      invalidHash:"Invalid hash",
+      needHash:"Compute or paste a hash first"
+    },
+    it: {
+      title:"Validora – Verifica Certificazione",
+      subtitle:"Controlla se un file (keccak256) è certificato su BSC Testnet.",
+      verifyTitle:"Verifica un file",
+      fileLabel:"Seleziona file",
+      hashLabel:"Oppure incolla hash (0x…)",
+      outHash:"Hash calcolato",
+      outSize:"Dimensione file (byte)",
+      btnHash:"Calcola hash",
+      btnVerify:"Verifica on-chain",
+      privacyNote:"L'hash viene calcolato in locale nel tuo browser.",
+      resultTitle:"Risultato",
+      stYes:"Certificato ✅",
+      stNo:"Non certificato ❌",
+      stRevoked:"Certificato ma revocato ⚠️",
+      submitter:"Sottomittente",
+      timestamp:"Timestamp",
+      sizeStored:"Dimensione salvata",
+      sizeMatch:"La dimensione coincide",
+      uri:"URI",
+      viewAddr:"Vedi su BscScan",
+      invalidHash:"Hash non valido",
+      needHash:"Calcola o incolla prima un hash"
+    }
+  };
+  var lang = 'en';
+  function t(k){ return (I18N[lang] && I18N[lang][k]) || k; }
+  function applyI18n(){
+    var nodes = document.querySelectorAll('[data-i18n]');
+    for (var i=0;i<nodes.length;i++){
+      var n = nodes[i]; n.textContent = t(n.getAttribute('data-i18n'));
+    }
+  }
+
+  // ==== ABIs ====
+  var FILE_CERTIFIER_ABI = [
+    "function getRecord(bytes32) view returns (address submitter, uint64 timestamp, bool revoked, string uri, uint64 size)",
+    "function exists(bytes32) view returns (bool)"
+  ];
+
+  // ==== Utils ====
+  function el(id){ return document.getElementById(id); }
+  function toBytes(buffer){ return new Uint8Array(buffer); }
+  function short(a){ if(!a) return ""; return a.slice(0,6) + "…" + a.slice(-4); }
+  function fmtBytes(n){ var x=Number(n)||0; if(x<1024) return x+" B"; var k=x/1024; if(k<1024) return k.toFixed(2)+" KB"; var m=k/1024; if(m<1024) return m.toFixed(2)+" MB"; var g=m/1024; return g.toFixed(2)+" GB"; }
+  function isHex32(h){ return /^0x[0-9a-fA-F]{64}$/.test(h||""); }
+  function dateFmt(ts){ try { return new Date(ts*1000).toLocaleString(); } catch(_) { return String(ts); } }
+
+  // ==== Provider & contract (read-only) ====
+  var provider = new ethers.providers.JsonRpcProvider(CFG.rpcUrl);
+  var contract  = new ethers.Contract(CFG.fileCert, FILE_CERTIFIER_ABI, provider);
+
+  // ==== Hashing ====
+  async function computeHashFromFile(){
+    var f = el('file-input').files[0];
+    if (!f) return;
+    el('size-out').value = String(f.size);
+    el('hash-out').value = '...';
+    var buf = await f.arrayBuffer();
+    var hex = ethers.utils.hexlify(toBytes(buf));
+    var h = ethers.utils.keccak256(hex);
+    el('hash-out').value = h;
+    el('hash-input').value = h;
+  }
+
+  function getHashToVerify(){
+    var h = (el('hash-input').value || el('hash-out').value || "").trim();
+    return h;
+  }
+
+  // ==== Render result ====
+  function renderStatus(ok, revoked){
+    var box = el('result-status'); box.innerHTML = '';
+    var span = document.createElement('span');
+    span.className = 'status ' + (ok ? (revoked ? 'warn' : 'ok') : 'err');
+    span.textContent = ok ? (revoked ? t('stRevoked') : t('stYes')) : t('stNo');
+    box.appendChild(span);
+  }
+
+  function renderBodyEmpty(){ el('result-body').innerHTML = ''; }
+
+  function renderBody(rec, hash, fileSize){
+    var body = el('result-body'); body.innerHTML = '';
+    if (!rec){ return; }
+    var sizeMatch = (fileSize && Number(fileSize) > 0) ? (Number(rec.size) === Number(fileSize)) : null;
+    var html = ''
+      + '<div class="pill">'+ t('submitter') +': '
+      +   '<a class="mono" href="'+CFG.explorer+'/address/'+rec.submitter+'" target="_blank" rel="noopener">'+ short(rec.submitter) +'</a>'
+      + '</div>'
+      + '<div style="margin-top:6px;">'+ t('timestamp') +': '+ dateFmt(rec.timestamp) +'</div>'
+      + '<div style="margin-top:6px;">'+ t('sizeStored') +': '+ rec.size +' ('+ fmtBytes(rec.size) +')</div>';
+    if (sizeMatch !== null){
+      html += '<div style="margin-top:6px;">'+ t('sizeMatch') +': ' + (sizeMatch ? '✅' : '❌') + '</div>';
+    }
+    if (rec.uri && rec.uri.length){
+      var safe = rec.uri.replace(/"/g,'&quot;');
+      html += '<div style="margin-top:6px;">'+ t('uri') +': <a href="'+safe+'" target="_blank" rel="noopener">'+ safe +'</a></div>';
+    }
+    html += '<div style="margin-top:10px;"><span class="pill mono">'+ hash +'</span></div>';
+
+    body.innerHTML = html;
+  }
+
+  // ==== Handlers ====
+  el('btn-lang-en').addEventListener('click', function(){ lang='en'; applyI18n(); });
+  el('btn-lang-it').addEventListener('click', function(){ lang='it'; applyI18n(); });
+
+  el('btn-hash').addEventListener('click', computeHashFromFile);
+  el('file-input').addEventListener('change', computeHashFromFile);
+
+  el('btn-verify').addEventListener('click', async function(){
+    var h = getHashToVerify();
+    if (!isHex32(h)){ alert(t('invalidHash')); return; }
+
+    // preferiamo usare la size del file se presente per confronto
+    var file = el('file-input').files[0];
+    var size = file ? file.size : 0;
+
+    // 1) exists
+    var ok = false;
+    try { ok = await contract.exists(h); } catch(e){ ok = false; }
+    renderStatus(ok, false);
+    if (!ok){ renderBodyEmpty(); return; }
+
+    // 2) getRecord
+    try{
+      var rec = await contract.getRecord(h);
+      // rec = [submitter, timestamp, revoked, uri, size]
+      renderStatus(true, rec.revoked);
+      renderBody(rec, h, size);
+    }catch(e){
+      renderStatus(true, false);
+      renderBodyEmpty();
+    }
+  });
+
+  // init
+  applyI18n();
+})();
+</script>
+</body>
+</html>
