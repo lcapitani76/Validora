@@ -50,6 +50,15 @@
         <button id="btn-disconnect" class="secondary" data-i18n="disconnect" disabled>Disconnect</button>
       </div>
       <div id="wallet-info" class="small muted mono" style="display:none;"></div>
+      <div id="adv-toggle" class="small" style="color:#93c5fd; cursor:pointer; display:block;">Advanced ▸</div>
+      <div id="adv-panel" class="small" style="display:none; text-align:right;">
+        <label style="display:block; margin-top:6px;">BscScan API Key (stored locally)</label>
+        <input id="api-key" placeholder="Paste your BscScan API key" style="max-width:360px;" />
+        <div class="btns" style="justify-content:flex-end; margin-top:6px;">
+          <button id="btn-save-key" class="secondary">Save</button>
+          <button id="btn-clear-key" class="secondary">Clear</button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -116,13 +125,7 @@
   var ethers = window.ethers;
 
   // ==== Fixed configuration (hidden) ====
-  var CFG = {
-    chainId: 97, // BSC Testnet
-    fileCert: "0x03a5bd09f887463a5B91d4033d39199b901Cf312",
-    vld: "0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b",
-    deployBlock: 63965484,
-    bscscanKey: "" // opzionale: inserisci qui la tua API key per fallback
-  };
+  var CFG = {$1bscscanKey: ""$2};
 
   // ==== i18n ====
   var I18N = {
@@ -219,6 +222,9 @@
   function apiBase(chainId){ return chainId===97 ? 'https://api-testnet.bscscan.com/api' : 'https://api.bscscan.com/api'; }
   function networkLabel(chainId){ if (chainId===97) return 'BSC Testnet (97)'; if (chainId===56) return 'BSC Mainnet (56)'; return 'Chain ' + chainId; }
   function updateWalletInfo(){ var w = el('wallet-info'); if (!w) return; if (state.account){ w.style.display='block'; w.textContent = state.account + ' • ' + networkLabel(state.chainId); } else { w.style.display='none'; w.textContent=''; } }
+  function getApiKey(){ var k = localStorage.getItem('validora_bscscan_key'); if (k && k.trim()) return k.trim(); if (CFG.bscscanKey && CFG.bscscanKey.trim()) return CFG.bscscanKey.trim(); return ""; }
+  function networkLabel(chainId){ if (chainId===97) return 'BSC Testnet (97)'; if (chainId===56) return 'BSC Mainnet (56)'; return 'Chain ' + chainId; }
+  function updateWalletInfo(){ var w = el('wallet-info'); if (!w) return; if (state.account){ w.style.display='block'; w.textContent = state.account + ' • ' + networkLabel(state.chainId); } else { w.style.display='none'; w.textContent=''; } }
   function networkLabel(chainId){ if (chainId===97) return 'BSC Testnet (97)'; if (chainId===56) return 'BSC Mainnet (56)'; return 'Chain ' + chainId; }
   function updateWalletInfo(){ var w = el('wallet-info'); if (!w) return; if (state.account){ w.style.display='block'; w.textContent = state.account + ' • ' + networkLabel(state.chainId); } else { w.style.display='none'; w.textContent=''; } }
 
@@ -303,13 +309,15 @@
       var addrTopic = ethers.utils.hexZeroPad(addrNorm.toLowerCase(), 32);
       var latest = toBlock || (await state.provider.getBlockNumber());
       var from = (fromBlock || CFG.deployBlock || 0);
+      var key = getApiKey();
       var url = base + '?module=logs&action=getLogs'
         + '&address=' + encodeURIComponent(CFG.fileCert)
         + '&fromBlock=' + from
         + '&toBlock=' + latest
         + '&topic0=' + topic0
         + '&topic2=' + addrTopic
-        + (CFG.bscscanKey ? ('&apikey=' + encodeURIComponent(CFG.bscscanKey)) : 'QMNAE82JDR9D3BEYUH5U8GGET8IUI8A87C');
+        + (key ? ('&apikey=' + encodeURIComponent(key)) : '');
+      var res = await fetch(url).then(function(r){ return r.json(); });
       var res = await fetch(url).then(function(r){ return r.json(); });
       if (!res || res.status !== '1' || !res.result) return [];
       var logs = res.result;
@@ -406,6 +414,15 @@
   el('btn-quote').addEventListener('click', async function(){ if (!state.fc || !state.account){ alert((I18N[lang]||I18N.en).needConnect); return; } var size = parseInt(el('size-out').value||'0',10); if (!size){ alert((I18N[lang]||I18N.en).needFile); return; } var fee = await state.fc.quoteItem(size); state.feeQuote = fee; el('fee-out').value = fmt18(fee); var ok = await hasAllowance(fee); el('btn-approve').disabled = ok; el('btn-certify').disabled = !ok; });
   el('btn-approve').addEventListener('click', async function(){ if (!state.vld){ alert((I18N[lang]||I18N.en).needConnect); return; } var amount = state.feeQuote; if (!amount || amount.isZero()){ alert('Quote first'); return; } var tx = await state.vld.approve(CFG.fileCert, amount); await tx.wait(); el('btn-approve').disabled = true; el('btn-certify').disabled = false; });
   el('btn-certify').addEventListener('click', async function(){ var f = el('file-input').files[0]; if (!f){ alert((I18N[lang]||I18N.en).needFile); return; } var hash = el('hash-out').value; if (!hash){ alert('Missing hash'); return; } var size = f.size; var uri = (el('uri-input').value||'').trim(); var tx = await state.fc.certify(hash, size, uri); var rc = await tx.wait(); var iface = new ethers.utils.Interface(FILE_CERTIFIER_ABI); var topic = iface.getEventTopic('FileCertified'); var feePaid = state.feeQuote; var fileHash = hash; var sizeOn = size; var uriOn = uri; for (var i=0;i<rc.logs.length;i++){ var l = rc.logs[i]; if (l.address.toLowerCase()===CFG.fileCert.toLowerCase() && l.topics && l.topics[0]===topic){ try{ var parsed = iface.parseLog(l); feePaid = parsed.args.feePaid; fileHash = parsed.args.fileHash; sizeOn = parsed.args.size.toNumber?parsed.args.size.toNumber():parsed.args.size; uriOn = parsed.args.uri; }catch(e){} break; } } var blk = await state.provider.getBlock(rc.blockNumber); var when = blk ? (blk.timestamp*1000) : Date.now(); addHistoryItem({ tx: tx.hash, hash: fileHash, size: sizeOn, uri: uriOn, fee: feePaid, fileName: f.name||'', time: when, chainId: state.chainId }); el('btn-approve').disabled = true; el('btn-certify').disabled = true; });
+
+  // Advanced panel handlers
+  (function(){
+    var tog = el('adv-toggle'); var pnl = el('adv-panel'); var inp = el('api-key');
+    function refresh(){ inp.value = getApiKey(); }
+    tog.addEventListener('click', function(){ var open = pnl.style.display==='block'; pnl.style.display = open ? 'none' : 'block'; tog.textContent = open ? 'Advanced ▸' : 'Advanced ▾'; refresh(); });
+    el('btn-save-key').addEventListener('click', function(){ var v = (inp.value||'').trim(); if (v){ localStorage.setItem('validora_bscscan_key', v); } else { localStorage.removeItem('validora_bscscan_key'); } alert('Saved locally'); });
+    el('btn-clear-key').addEventListener('click', function(){ localStorage.removeItem('validora_bscscan_key'); inp.value=''; alert('Cleared'); });
+  })();
 
   // init
   applyI18n();
