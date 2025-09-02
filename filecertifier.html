@@ -6,29 +6,32 @@
   <title>Validora – File Certifier dApp</title>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <style>
-    :root {
-      --bg: #0b1120; --panel: #111827; --muted: #9ca3af; --text: #e5e7eb;
-      --accent: #3b82f6; --accent-2: #22c55e; --warn: #f59e0b; --error: #ef4444; --border: #1f2937; --card: #0f172a;
-    }
+    :root { --bg:#0b1120; --panel:#111827; --muted:#9ca3af; --text:#e5e7eb; --accent:#3b82f6; --accent-2:#22c55e; --warn:#f59e0b; --border:#1f2937; --card:#0f172a; }
     * { box-sizing: border-box; }
     body { margin:0; padding:24px; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background: radial-gradient(1200px 800px at 100% -10%, #111827 0%, var(--bg) 40%); color: var(--text); }
-    h1 { font-size: 28px; margin: 0 0 4px; }
+    h1 { font-size:28px; margin:0 0 4px; }
     .sub { color: var(--muted); margin-bottom: 16px; }
     .card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)); border:1px solid var(--border); border-radius:16px; padding:16px; }
     .spaced { display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .btns { display:flex; gap:10px; flex-wrap:wrap; }
     button { background: var(--accent); border:none; color:white; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600; }
-    button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
-    button.warn { background: var(--warn); }
+    button.secondary { background: transparent; border:1px solid var(--border); color: var(--text); }
     button.success { background: var(--accent-2); }
-    button:disabled { opacity: .6; cursor: not-allowed; }
-    input { width: 100%; background: var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 12px; color: var(--text); }
+    button.warn { background: var(--warn); }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+    input { width:100%; background: var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 12px; color: var(--text); }
     label { display:block; font-size:12px; color: var(--muted); margin-bottom:6px; }
     .row { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-    .log { background:#0a0f1f; border:1px solid var(--border); border-radius:12px; padding:10px; font-size:12px; white-space:pre-wrap; max-height:220px; overflow:auto; }
-    .banner { border:1px dashed var(--warn); background: rgba(245,158,11,.08); color:#fde68a; padding:8px 12px; border-radius:12px; margin: 8px 0 16px; }
+    .banner { border:1px dashed var(--warn); background: rgba(245,158,11,.08); color:#fde68a; padding:8px 12px; border-radius:12px; margin:8px 0 16px; }
     .muted { color: var(--muted); }
+    /* history list */
+    .hist { display:grid; gap:12px; }
+    .hist-item { border:1px solid var(--border); background: var(--card); border-radius:12px; padding:12px; }
+    .hist-top { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+    .pill { display:inline-block; font-size:12px; color:var(--muted); border:1px dashed var(--border); border-radius:999px; padding:4px 8px; }
+    a { color:#93c5fd; text-decoration:none; }
+    a:hover { text-decoration:underline; }
   </style>
 </head>
 <body>
@@ -84,194 +87,217 @@
     <div class="muted" style="margin-top:8px;" data-i18n="privacyNote">Hashes are computed locally in your browser.</div>
   </section>
 
+  <!-- History -->
   <section class="card" style="margin-top:16px;">
-    <h3 style="margin-top:0;" data-i18n="logTitle">Log</h3>
-    <div id="log" class="log"></div>
+    <h3 style="margin-top:0;" data-i18n="historyTitle">My Certifications</h3>
+    <div id="history-list" class="hist" data-i18n-empty="emptyHistory"></div>
+    <div class="btns" style="margin-top:12px;">
+      <button id="btn-clear-history" class="secondary" data-i18n="clearHistory">Clear history</button>
+    </div>
   </section>
 
 <script>
 (function(){
-  const { ethers } = window.ethers;
+  'use strict';
+  var ethers = window.ethers;
 
   // ==== Fixed configuration (hidden) ====
-  const CFG = {
+  var CFG = {
     chainId: 97, // BSC Testnet
-    fileCert: "0x32B0A57C00FCD8B0334a28F5E571037e205369dc", // FileCertifier on testnet
-    vld: "0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b" // VLD on testnet
+    fileCert: "0x32B0A57C00FCD8B0334a28F5E571037e205369dc",
+    vld: "0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b"
   };
 
   // ==== i18n ====
-  const I18N = {
+  var I18N = {
     en: {
       title:"Validora – File Certifier",
       subtitle:"Certify your file's keccak256 hash on BSC using VLD.",
-      connect:"Connect Wallet", disconnect:"Disconnect",
-      networkWarn:"You're not on BSC Testnet (97). Please switch network in Metamask.",
+      connect:"Connect Wallet",
+      disconnect:"Disconnect",
+      networkWarn:"You are not on BSC Testnet (97). Please switch network in Metamask.",
       singleTitle:"Single file certification",
-      fileLabel:"Select file", uriLabel:"URI (optional)",
-      hashLabel:"Hash (keccak256)", sizeLabel:"Size (bytes)",
-      feeLabel:"Estimated fee (VLD)", btnQuote:"Calculate Fee",
-      btnApprove:"Approve VLD", btnCertify:"Certify",
+      fileLabel:"Select file",
+      uriLabel:"URI (optional)",
+      hashLabel:"Hash (keccak256)",
+      sizeLabel:"Size (bytes)",
+      feeLabel:"Estimated fee (VLD)",
+      btnQuote:"Calculate Fee",
+      btnApprove:"Approve VLD",
+      btnCertify:"Certify",
       privacyNote:"Hashes are computed locally in your browser.",
-      logTitle:"Log",
-      noMM:"Metamask not detected",
+      historyTitle:"My Certifications",
+      clearHistory:"Clear history",
+      emptyHistory:"No certifications yet.",
       needFile:"Select a file first",
       needConnect:"Connect wallet first",
+      noMM:"Metamask not detected"
     },
     it: {
       title:"Validora – Certificatore File",
       subtitle:"Certifica l'hash keccak256 del tuo file su BSC usando VLD.",
-      connect:"Connetti Wallet", disconnect:"Disconnetti",
+      connect:"Connetti Wallet",
+      disconnect:"Disconnetti",
       networkWarn:"Non sei su BSC Testnet (97). Cambia rete in Metamask.",
       singleTitle:"Certificazione file singolo",
-      fileLabel:"Seleziona file", uriLabel:"URI (opzionale)",
-      hashLabel:"Hash (keccak256)", sizeLabel:"Dimensione (byte)",
-      feeLabel:"Fee stimata (VLD)", btnQuote:"Calcola Fee",
-      btnApprove:"Approva VLD", btnCertify:"Certifica",
+      fileLabel:"Seleziona file",
+      uriLabel:"URI (opzionale)",
+      hashLabel:"Hash (keccak256)",
+      sizeLabel:"Dimensione (byte)",
+      feeLabel:"Fee stimata (VLD)",
+      btnQuote:"Calcola Fee",
+      btnApprove:"Approva VLD",
+      btnCertify:"Certifica",
       privacyNote:"Gli hash sono calcolati in locale nel tuo browser.",
-      logTitle:"Log",
-      noMM:"Metamask non rilevato",
+      historyTitle:"Le mie certificazioni",
+      clearHistory:"Svuota elenco",
+      emptyHistory:"Nessuna certificazione ancora.",
       needFile:"Seleziona prima un file",
       needConnect:"Connetti prima il wallet",
+      noMM:"Metamask non rilevato"
     }
   };
-  let lang = 'en';
-
+  var lang = 'en';
   function t(key){ return (I18N[lang] && I18N[lang][key]) || key; }
   function applyI18n(){
-    document.querySelectorAll('[data-i18n]').forEach(el=>{
-      el.textContent = t(el.getAttribute('data-i18n'));
-    });
+    var nodes = document.querySelectorAll('[data-i18n]');
+    for (var i=0;i<nodes.length;i++){
+      nodes[i].textContent = t(nodes[i].getAttribute('data-i18n'));
+    }
+    var hist = document.getElementById('history-list');
+    if (hist && !hist.hasChildNodes()) { hist.textContent = t('emptyHistory'); }
   }
 
-  // ==== Minimal ABIs ====
-  const FILE_CERTIFIER_ABI = [
+  // ==== Minimal ABIs (includes event) ====
+  var FILE_CERTIFIER_ABI = [
     "function quoteItem(uint64 size) view returns (uint256)",
     "function certify(bytes32 fileHash, uint64 size, string uri)",
     "function baseFee() view returns (uint256)",
     "function unitFee() view returns (uint256)",
     "function chunkSize() view returns (uint256)",
     "function batchDiscountBps() view returns (uint16)",
+    "event FileCertified(bytes32 indexed fileHash, address indexed submitter, string uri, uint64 size, uint256 feePaid)"
   ];
-  const ERC20_ABI = [
+  var ERC20_ABI = [
     "function decimals() view returns (uint8)",
     "function allowance(address owner, address spender) view returns (uint256)",
     "function approve(address spender, uint256 amount) returns (bool)"
   ];
 
-  // ==== UI & state ====
-  const el = id => document.getElementById(id);
-  const logEl = el('log');
-  function log(msg){ logEl.textContent += msg + " "; logEl.scrollTop = logEl.scrollHeight; }
-  function fmt18(bn){ try { return ethers.utils.formatUnits(bn||0, 18); } catch{ return String(bn); } }
+  // ==== UI helpers & state ====
+  function el(id){ return document.getElementById(id); }
+  function log(msg){ try{ console.log(msg); }catch(e){} }
+  function fmt18(bn){ try { return ethers.utils.formatUnits(bn||0, 18); } catch(e){ return String(bn); } }
+  function shortHash(h){ if (!h) return ''; return h.slice(0,10) + '…' + h.slice(-6); }
+  function formatBytes(n){ var x=Number(n)||0; if (x<1024) return x+" B"; var k=x/1024; if (k<1024) return k.toFixed(2)+" KB"; var m=k/1024; if (m<1024) return m.toFixed(2)+" MB"; var g=m/1024; return g.toFixed(2)+" GB"; }
+  function explorerBase(chainId){ if (chainId===97) return 'https://testnet.bscscan.com'; if (chainId===56) return 'https://bscscan.com'; return 'https://bscscan.com'; }
 
-  const state = { provider:null, signer:null, account:null, fc:null, vld:null, feeQuote: ethers.constants.Zero, decimals:18, chainId:null };
+  var state = { provider:null, signer:null, account:null, fc:null, vld:null, feeQuote: ethers.constants.Zero, decimals:18, chainId:null };
 
-  function updateButtons(){
-    const connected = !!state.account;
-    el('btn-connect').disabled = connected;
-    el('btn-disconnect').disabled = !connected;
+  function updateButtons(){ var connected = !!state.account; el('btn-connect').disabled = connected; el('btn-disconnect').disabled = !connected; }
+  function showNetWarning(show){ var banner = el('net-banner'); if (show){ banner.style.display='block'; banner.textContent = t('networkWarn'); } else { banner.style.display='none'; banner.textContent=''; } }
+
+  // ==== History (localStorage) ====
+  function loadHistory(){ try { return JSON.parse(localStorage.getItem('validora_history')||'[]')||[]; } catch(e){ return []; } }
+  function saveHistory(arr){ try { localStorage.setItem('validora_history', JSON.stringify(arr)); } catch(e){} }
+  function addHistory(rec){ var arr = loadHistory(); arr.push(rec); if (arr.length>100) arr = arr.slice(-100); saveHistory(arr); renderHistory(); }
+  function renderHistory(){
+    var list = el('history-list');
+    list.innerHTML = '';
+    var arr = loadHistory();
+    if (!arr.length){ list.textContent = t('emptyHistory'); return; }
+    var base;
+    for (var i=arr.length-1; i>=0; i--){
+      var r = arr[i];
+      base = explorerBase(r.chainId||state.chainId||97);
+      var feeVld = fmt18(r.fee||0);
+      var when = r.time ? new Date(r.time).toLocaleString() : '';
+      var html = '<div class="hist-item">'
+        + '<div class="hist-top">'
+        +   '<div><strong>' + (r.fileName||'') + '</strong></div>'
+        +   '<div class="pill">' + when + '</div>'
+        + '</div>'
+        + '<div class="muted" style="margin-top:6px;">' + shortHash(r.hash) + ' • ' + formatBytes(r.size) + ' • ' + feeVld + ' VLD</div>'
+        + '<div style="margin-top:6px;">'
+        +   (r.uri ? ('<span class="pill">URI</span> <a href="' + r.uri + '" target="_blank" rel="noopener">' + r.uri + '</a>') : '')
+        + '</div>'
+        + '<div style="margin-top:6px;">TX: <a class="mono" href="' + base + '/tx/' + r.tx + '" target="_blank" rel="noopener">' + shortHash(r.tx) + '</a></div>'
+        + '</div>';
+      var div = document.createElement('div');
+      div.innerHTML = html; list.appendChild(div.firstChild);
+    }
   }
 
-  function showNetWarning(show){
-    const banner = document.getElementById('net-banner');
-    if (show){ banner.style.display='block'; banner.textContent = t('networkWarn'); }
-    else { banner.style.display='none'; banner.textContent=''; }
-  }
-
+  // ==== Connect/Disconnect ====
+  function ensureMM(){ if (!window.ethereum){ alert(t('noMM')); return false; } return true; }
   async function connect(){
-    if (!window.ethereum) { alert(t('noMM')); return; }
-    await ethereum.request({ method: 'eth_requestAccounts' });
+    if (!ensureMM()) return;
+    await window.ethereum.request({ method: 'eth_requestAccounts' });
     state.provider = new ethers.providers.Web3Provider(window.ethereum);
     state.signer = state.provider.getSigner();
     state.account = await state.signer.getAddress();
-    const net = await state.provider.getNetwork();
+    var net = await state.provider.getNetwork();
     state.chainId = Number(net.chainId);
-    log(`Connected: ${state.account} | chainId ${state.chainId}`);
     updateButtons();
-
-    if (state.chainId !== CFG.chainId){
-      showNetWarning(true);
-    } else {
-      showNetWarning(false);
-      await initContracts();
-    }
+    if (state.chainId !== CFG.chainId){ showNetWarning(true); } else { showNetWarning(false); await initContracts(); }
   }
-  async function disconnect(){
-    state.provider=null; state.signer=null; state.account=null; state.fc=null; state.vld=null; state.feeQuote=ethers.constants.Zero; state.chainId=null;
-    updateButtons();
-    showNetWarning(false);
-    log('Disconnected');
-  }
+  async function disconnect(){ state = Object.assign(state, { provider:null, signer:null, account:null, fc:null, vld:null, feeQuote: ethers.constants.Zero, chainId:null }); updateButtons(); showNetWarning(false); }
 
-  async function initContracts(){
-    state.fc = new ethers.Contract(CFG.fileCert, FILE_CERTIFIER_ABI, state.signer);
-    state.vld = new ethers.Contract(CFG.vld, ERC20_ABI, state.signer);
-    try { state.decimals = await state.vld.decimals(); } catch{}
-  }
+  async function initContracts(){ state.fc = new ethers.Contract(CFG.fileCert, FILE_CERTIFIER_ABI, state.signer); state.vld = new ethers.Contract(CFG.vld, ERC20_ABI, state.signer); try { state.decimals = await state.vld.decimals(); } catch(e){} }
 
-  // Helpers
+  // ==== Helpers ====
   function toBytes(buffer){ return new Uint8Array(buffer); }
-  async function hashFile(file){
-    const buf = await file.arrayBuffer();
-    const hex = ethers.utils.hexlify(toBytes(buf));
-    return ethers.utils.keccak256(hex);
-  }
-  async function hasAllowance(required){
-    const allowance = await state.vld.allowance(state.account, CFG.fileCert);
-    return ethers.BigNumber.from(allowance).gte(required);
-  }
+  async function hashFile(file){ var buf = await file.arrayBuffer(); var hex = ethers.utils.hexlify(toBytes(buf)); return ethers.utils.keccak256(hex); }
+  async function hasAllowance(required){ var allowance = await state.vld.allowance(state.account, CFG.fileCert); return ethers.BigNumber.from(allowance).gte(required); }
 
-  // Events
+  // ==== UI events ====
   el('btn-connect').addEventListener('click', connect);
   el('btn-disconnect').addEventListener('click', disconnect);
+  el('btn-lang-en').addEventListener('click', function(){ lang='en'; applyI18n(); renderHistory(); });
+  el('btn-lang-it').addEventListener('click', function(){ lang='it'; applyI18n(); renderHistory(); });
+  el('btn-clear-history').addEventListener('click', function(){ localStorage.removeItem('validora_history'); renderHistory(); });
 
-  el('btn-lang-en').addEventListener('click', ()=>{ lang='en'; applyI18n(); });
-  el('btn-lang-it').addEventListener('click', ()=>{ lang='it'; applyI18n(); });
+  el('file-input').addEventListener('change', async function(e){ var f = e.target.files[0]; if (!f) return; el('size-out').value = String(f.size); el('hash-out').value = '...'; try { var h = await hashFile(f); el('hash-out').value = h; } catch(err){ el('hash-out').value=''; } });
 
-  el('file-input').addEventListener('change', async (e)=>{
-    const f = e.target.files[0];
-    if (!f) return;
-    el('size-out').value = String(f.size);
-    el('hash-out').value = '...';
-    try { const h = await hashFile(f); el('hash-out').value = h; log('Hash: ' + h); } catch(err){ el('hash-out').value=''; log('Hash error: ' + (err.message||err)); }
+  el('btn-quote').addEventListener('click', async function(){ if (!state.fc || !state.account){ alert(t('needConnect')); return; } var size = parseInt(el('size-out').value||'0',10); if (!size){ alert(t('needFile')); return; } var fee = await state.fc.quoteItem(size); state.feeQuote = fee; el('fee-out').value = fmt18(fee); var ok = await hasAllowance(fee); el('btn-approve').disabled = ok; el('btn-certify').disabled = !ok; });
+
+  el('btn-approve').addEventListener('click', async function(){ if (!state.vld){ alert(t('needConnect')); return; } var amount = state.feeQuote; if (!amount || amount.isZero()){ alert('Quote first'); return; } var tx = await state.vld.approve(CFG.fileCert, amount); await tx.wait(); el('btn-approve').disabled = true; el('btn-certify').disabled = false; });
+
+  el('btn-certify').addEventListener('click', async function(){
+    var f = el('file-input').files[0]; if (!f){ alert(t('needFile')); return; }
+    var hash = el('hash-out').value; if (!hash){ alert('Missing hash'); return; }
+    var size = f.size; var uri = (el('uri-input').value||'').trim();
+    var tx = await state.fc.certify(hash, size, uri);
+    var rc = await tx.wait();
+
+    // parse event for feePaid & canonical values
+    var iface = new ethers.utils.Interface(FILE_CERTIFIER_ABI);
+    var topic = iface.getEventTopic('FileCertified');
+    var feePaid = state.feeQuote; var fileHash = hash; var sizeOn = size; var uriOn = uri;
+    for (var i=0;i<rc.logs.length;i++){
+      var l = rc.logs[i];
+      if (l.address.toLowerCase() === CFG.fileCert.toLowerCase() && l.topics && l.topics[0] === topic){
+        try{
+          var parsed = iface.parseLog(l);
+          feePaid = parsed.args.feePaid;
+          fileHash = parsed.args.fileHash;
+          sizeOn = parsed.args.size.toNumber ? parsed.args.size.toNumber() : parsed.args.size;
+          uriOn = parsed.args.uri;
+        }catch(e){}
+        break;
+      }
+    }
+    var blk = await state.provider.getBlock(rc.blockNumber);
+    var when = blk ? (blk.timestamp*1000) : Date.now();
+    addHistory({ tx: tx.hash, hash: fileHash, size: sizeOn, uri: uriOn, fee: feePaid, fileName: f.name||'', time: when, chainId: state.chainId });
+
+    // reset approve/certify buttons
+    el('btn-approve').disabled = true; el('btn-certify').disabled = true;
   });
 
-  el('btn-quote').addEventListener('click', async ()=>{
-    if (!state.fc || !state.account) { return alert(t('needConnect')); }
-    const size = parseInt(el('size-out').value || '0', 10);
-    if (!size) return alert(t('needFile'));
-    const fee = await state.fc.quoteItem(size);
-    state.feeQuote = fee;
-    el('fee-out').value = fmt18(fee);
-    const ok = await hasAllowance(fee);
-    el('btn-approve').disabled = ok;
-    el('btn-certify').disabled = !ok;
-    log('Estimated fee: ' + fmt18(fee) + ' VLD');
-  });
-
-  el('btn-approve').addEventListener('click', async ()=>{
-    if (!state.vld) return alert(t('needConnect'));
-    const amount = state.feeQuote; if (!amount || amount.isZero()) return alert('Quote first');
-    const tx = await state.vld.approve(CFG.fileCert, amount);
-    log('approve tx: ' + tx.hash);
-    await tx.wait();
-    log('approve confirmed');
-    el('btn-approve').disabled = true; el('btn-certify').disabled = false;
-  });
-
-  el('btn-certify').addEventListener('click', async ()=>{
-    const f = el('file-input').files[0]; if (!f) return alert(t('needFile'));
-    const hash = el('hash-out').value; if (!hash) return alert('Missing hash');
-    const size = f.size; const uri = (el('uri-input').value || '').trim();
-    const tx = await state.fc.certify(hash, size, uri);
-    log('certify tx: ' + tx.hash);
-    const rc = await tx.wait();
-    log('certify confirmed – block ' + rc.blockNumber);
-  });
-
-  // Init i18n default EN
+  // init
   applyI18n();
+  renderHistory();
 })();
 </script>
 </body>
