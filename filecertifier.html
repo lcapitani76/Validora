@@ -50,15 +50,6 @@
         <button id="btn-disconnect" class="secondary" data-i18n="disconnect" disabled>Disconnect</button>
       </div>
       <div id="wallet-info" class="small muted mono" style="display:none;"></div>
-      <div id="adv-toggle" class="small" style="color:#93c5fd; cursor:pointer; display:block;">Advanced ▸</div>
-      <div id="adv-panel" class="small" style="display:none; text-align:right;">
-        <label style="display:block; margin-top:6px;">BscScan API Key (stored locally)</label>
-        <input id="api-key" placeholder="Paste your BscScan API key" style="max-width:360px;" />
-        <div class="btns" style="justify-content:flex-end; margin-top:6px;">
-          <button id="btn-save-key" class="secondary">Save</button>
-          <button id="btn-clear-key" class="secondary">Clear</button>
-        </div>
-      </div>
     </div>
   </header>
 
@@ -125,13 +116,13 @@
   var ethers = window.ethers;
 
   // ==== Fixed configuration (hidden) ====
- var CFG = {
-  chainId: 97, // BSC Testnet
-  fileCert: "0x03a5bd09f887463a5B91d4033d39199b901Cf312",
-  vld: "0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b",
-  deployBlock: 63965484,
-  bscscanKey: "" // opzionale: puoi lasciarlo vuoto e usare la key salvata in localStorage
-};
+  var CFG = {
+    chainId: 97, // BSC Testnet
+    fileCert: "0x03a5bd09f887463a5B91d4033d39199b901Cf312",
+    vld: "0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b",
+    deployBlock: 63965484
+  };
+
   // ==== i18n ====
   var I18N = {
     en: {
@@ -224,12 +215,6 @@
   function shortHash(h){ if (!h) return ''; return h.slice(0,10) + '…' + h.slice(-6); }
   function formatBytes(n){ var x=Number(n)||0; if (x<1024) return x+" B"; var k=x/1024; if (k<1024) return k.toFixed(2)+" KB"; var m=k/1024; if (m<1024) return m.toFixed(2)+" MB"; var g=m/1024; return g.toFixed(2)+" GB"; }
   function explorerBase(chainId){ if (chainId===97) return 'https://testnet.bscscan.com'; if (chainId===56) return 'https://bscscan.com'; return 'https://bscscan.com'; }
-  function apiBase(chainId){ return chainId===97 ? 'https://api-testnet.bscscan.com/api' : 'https://api.bscscan.com/api'; }
-  function networkLabel(chainId){ if (chainId===97) return 'BSC Testnet (97)'; if (chainId===56) return 'BSC Mainnet (56)'; return 'Chain ' + chainId; }
-  function updateWalletInfo(){ var w = el('wallet-info'); if (!w) return; if (state.account){ w.style.display='block'; w.textContent = state.account + ' • ' + networkLabel(state.chainId); } else { w.style.display='none'; w.textContent=''; } }
-  function getApiKey(){ var k = localStorage.getItem('validora_bscscan_key'); if (k && k.trim()) return k.trim(); if (CFG.bscscanKey && CFG.bscscanKey.trim()) return CFG.bscscanKey.trim(); return ""; }
-  function networkLabel(chainId){ if (chainId===97) return 'BSC Testnet (97)'; if (chainId===56) return 'BSC Mainnet (56)'; return 'Chain ' + chainId; }
-  function updateWalletInfo(){ var w = el('wallet-info'); if (!w) return; if (state.account){ w.style.display='block'; w.textContent = state.account + ' • ' + networkLabel(state.chainId); } else { w.style.display='none'; w.textContent=''; } }
   function networkLabel(chainId){ if (chainId===97) return 'BSC Testnet (97)'; if (chainId===56) return 'BSC Mainnet (56)'; return 'Chain ' + chainId; }
   function updateWalletInfo(){ var w = el('wallet-info'); if (!w) return; if (state.account){ w.style.display='block'; w.textContent = state.account + ' • ' + networkLabel(state.chainId); } else { w.style.display='none'; w.textContent=''; } }
 
@@ -242,105 +227,37 @@
   function showNetWarning(show){ var banner = el('net-banner'); if (show){ banner.style.display='block'; banner.textContent = t('networkWarn'); } else { banner.style.display='none'; banner.textContent=''; } }
 
   // ==== On-chain history fetch (only by submitter) ====
-  async function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
-  function isRpcBusy(e){ return e && (e.code === -32603 || /rate|busy|timeout|exceeded/i.test(e.message||'')); }
   async function fetchOnChainHistory(submitter){
-    try{
-      if (!state.provider || !state.fc || !submitter) return [];
-      var iface = new ethers.utils.Interface(FILE_CERTIFIER_ABI);
-      var topic = iface.getEventTopic('FileCertified');
-      var addrNorm = ethers.utils.getAddress(submitter);
-      var addrTopic = ethers.utils.hexZeroPad(addrNorm.toLowerCase(), 32);
-
-      var latest = await state.provider.getBlockNumber();
-      var start = CFG.deployBlock && CFG.deployBlock>0 ? CFG.deployBlock : Math.max(0, latest - 150000);
-      var step = 4000;                // start conservativo
-      var minStep = 256;              // non scendere sotto
-      var pause = 120;                // ms tra richieste
-      var logs = [];
-      var failures = 0;
-
-      for (var from=start; from<=latest;){
-        var to = Math.min(latest, from + step - 1);
-        var tries = 0; var ok = false;
-        while (!ok && tries < 3){
-          try{
-            var chunk = await state.provider.getLogs({ address: CFG.fileCert, fromBlock: from, toBlock: to, topics: [topic, null, addrTopic] });
-            if (chunk && chunk.length) logs = logs.concat(chunk);
-            ok = true;
-          }catch(e){
-            tries++; failures++;
-            console.warn('getLogs failed', {from,to,tries,msg:e && e.message});
-            if ((e && (e.code === -32603 || /rate|busy|timeout|exceeded/i.test(e.message||''))) && step > minStep){ step = Math.max(minStep, Math.floor(step/2)); }
-            await new Promise(r=>setTimeout(r, 200 * tries));
-            if (failures >= 6) { // troppi errori ⇒ prova fallback
-              console.warn('Switching to BscScan fallback...');
-              var fb = await fetchViaBscScan(submitter, start, latest);
-              return fb;
-            }
-          }
-        }
-        from = to + 1;
-        await new Promise(r=>setTimeout(r, pause));
-      }
-
-      var out = [];
-      var tsCache = {};
-      for (var i=0;i<logs.length;i++){
-        var l = logs[i];
-        try{
-          var parsed = iface.parseLog(l);
-          var bn = l.blockNumber;
-          var ts = tsCache[bn];
-          if (!ts){ var blk = await state.provider.getBlock(bn); ts = blk ? blk.timestamp*1000 : Date.now(); tsCache[bn]=ts; }
-          out.push({ tx: l.transactionHash, hash: parsed.args.fileHash, size: parsed.args.size.toNumber ? parsed.args.size.toNumber() : parsed.args.size, uri: parsed.args.uri, fee: parsed.args.feePaid, fileName: '', time: ts, chainId: state.chainId });
-        }catch(e){ /* skip parse errors */ }
-      }
-      out.sort(function(a,b){ return (b.time||0)-(a.time||0); });
-      return out;
-    }catch(err){
-      console.warn('history fetch error', err && err.message ? err.message : err);
-      return [];
+    if (!state.provider) return [];
+    var iface = new ethers.utils.Interface(FILE_CERTIFIER_ABI);
+    var topic = iface.getEventTopic('FileCertified');
+    var paddedAddr = ethers.utils.hexZeroPad((submitter||'').toLowerCase(), 32);
+    var latest = await state.provider.getBlockNumber();
+    var start = CFG.deployBlock && CFG.deployBlock>0 ? CFG.deployBlock : Math.max(0, latest - 300000);
+    var step = 20000;
+    var logs = [];
+    for (var from=start; from<=latest; from += step){
+      var to = Math.min(latest, from + step - 1);
+      try{
+        var chunk = await state.provider.getLogs({ address: CFG.fileCert, fromBlock: from, toBlock: to, topics: [topic, null, paddedAddr] });
+        if (chunk && chunk.length) logs = logs.concat(chunk);
+      }catch(e){ /* ignore chunk errors */ }
     }
-  }
-
-  async function fetchViaBscScan(submitter, fromBlock, toBlock){
-    try{
-      if (!submitter) return [];
-      var base = apiBase(state.chainId||97);
-      var iface = new ethers.utils.Interface(FILE_CERTIFIER_ABI);
-      var topic0 = iface.getEventTopic('FileCertified');
-      var addrNorm = ethers.utils.getAddress(submitter);
-      var addrTopic = ethers.utils.hexZeroPad(addrNorm.toLowerCase(), 32);
-      var latest = toBlock || (await state.provider.getBlockNumber());
-      var from = (fromBlock || CFG.deployBlock || 0);
-      var key = getApiKey();
-      var url = base + '?module=logs&action=getLogs'
-        + '&address=' + encodeURIComponent(CFG.fileCert)
-        + '&fromBlock=' + from
-        + '&toBlock=' + latest
-        + '&topic0=' + topic0
-        + '&topic2=' + addrTopic
-        + (key ? ('&apikey=' + encodeURIComponent(key)) : '');
-      var res = await fetch(url).then(function(r){ return r.json(); });
-      var res = await fetch(url).then(function(r){ return r.json(); });
-      if (!res || res.status !== '1' || !res.result) return [];
-      var logs = res.result;
-      var out = [];
-      var tsCache = {};
-      for (var i=0;i<logs.length;i++){
-        var l = logs[i];
-        try{
-          var parsed = iface.parseLog({ topics: l.topics, data: l.data });
-          var bn = parseInt(l.blockNumber);
-          var ts = l.timeStamp ? (parseInt(l.timeStamp, 16) * 1000) : (tsCache[bn] || 0);
-          if (!ts){ var blk = await state.provider.getBlock(bn); ts = blk ? blk.timestamp*1000 : Date.now(); tsCache[bn]=ts; }
-          out.push({ tx: l.transactionHash, hash: parsed.args.fileHash, size: parsed.args.size.toNumber ? parsed.args.size.toNumber() : parsed.args.size, uri: parsed.args.uri, fee: parsed.args.feePaid, fileName: '', time: ts, chainId: state.chainId });
-        }catch(e){ }
-      }
-      out.sort(function(a,b){ return (b.time||0)-(a.time||0); });
-      return out;
-    }catch(e){ console.warn('bscscan fallback error', e && e.message ? e.message : e); return []; }
+    var out = [];
+    var tsCache = {};
+    for (var i=0;i<logs.length;i++){
+      var l = logs[i];
+      try{
+        var parsed = iface.parseLog(l);
+        var bn = l.blockNumber;
+        var ts = tsCache[bn];
+        if (!ts){ var blk = await state.provider.getBlock(bn); ts = blk ? blk.timestamp*1000 : Date.now(); tsCache[bn]=ts; }
+        out.push({ tx: l.transactionHash, hash: parsed.args.fileHash, size: parsed.args.size.toNumber ? parsed.args.size.toNumber() : parsed.args.size, uri: parsed.args.uri, fee: parsed.args.feePaid, fileName: '', time: ts, chainId: state.chainId });
+      }catch(e){ }
+    }
+    // sort desc by time
+    out.sort(function(a,b){ return (b.time||0)-(a.time||0); });
+    return out;
   }
 
   function setHistory(items){ state.history = items || []; state.page = 1; renderHistory(); }
@@ -419,15 +336,6 @@
   el('btn-quote').addEventListener('click', async function(){ if (!state.fc || !state.account){ alert((I18N[lang]||I18N.en).needConnect); return; } var size = parseInt(el('size-out').value||'0',10); if (!size){ alert((I18N[lang]||I18N.en).needFile); return; } var fee = await state.fc.quoteItem(size); state.feeQuote = fee; el('fee-out').value = fmt18(fee); var ok = await hasAllowance(fee); el('btn-approve').disabled = ok; el('btn-certify').disabled = !ok; });
   el('btn-approve').addEventListener('click', async function(){ if (!state.vld){ alert((I18N[lang]||I18N.en).needConnect); return; } var amount = state.feeQuote; if (!amount || amount.isZero()){ alert('Quote first'); return; } var tx = await state.vld.approve(CFG.fileCert, amount); await tx.wait(); el('btn-approve').disabled = true; el('btn-certify').disabled = false; });
   el('btn-certify').addEventListener('click', async function(){ var f = el('file-input').files[0]; if (!f){ alert((I18N[lang]||I18N.en).needFile); return; } var hash = el('hash-out').value; if (!hash){ alert('Missing hash'); return; } var size = f.size; var uri = (el('uri-input').value||'').trim(); var tx = await state.fc.certify(hash, size, uri); var rc = await tx.wait(); var iface = new ethers.utils.Interface(FILE_CERTIFIER_ABI); var topic = iface.getEventTopic('FileCertified'); var feePaid = state.feeQuote; var fileHash = hash; var sizeOn = size; var uriOn = uri; for (var i=0;i<rc.logs.length;i++){ var l = rc.logs[i]; if (l.address.toLowerCase()===CFG.fileCert.toLowerCase() && l.topics && l.topics[0]===topic){ try{ var parsed = iface.parseLog(l); feePaid = parsed.args.feePaid; fileHash = parsed.args.fileHash; sizeOn = parsed.args.size.toNumber?parsed.args.size.toNumber():parsed.args.size; uriOn = parsed.args.uri; }catch(e){} break; } } var blk = await state.provider.getBlock(rc.blockNumber); var when = blk ? (blk.timestamp*1000) : Date.now(); addHistoryItem({ tx: tx.hash, hash: fileHash, size: sizeOn, uri: uriOn, fee: feePaid, fileName: f.name||'', time: when, chainId: state.chainId }); el('btn-approve').disabled = true; el('btn-certify').disabled = true; });
-
-  // Advanced panel handlers
-  (function(){
-    var tog = el('adv-toggle'); var pnl = el('adv-panel'); var inp = el('api-key');
-    function refresh(){ inp.value = getApiKey(); }
-    tog.addEventListener('click', function(){ var open = pnl.style.display==='block'; pnl.style.display = open ? 'none' : 'block'; tog.textContent = open ? 'Advanced ▸' : 'Advanced ▾'; refresh(); });
-    el('btn-save-key').addEventListener('click', function(){ var v = (inp.value||'').trim(); if (v){ localStorage.setItem('validora_bscscan_key', v); } else { localStorage.removeItem('validora_bscscan_key'); } alert('Saved locally'); });
-    el('btn-clear-key').addEventListener('click', function(){ localStorage.removeItem('validora_bscscan_key'); inp.value=''; alert('Cleared'); });
-  })();
 
   // init
   applyI18n();
