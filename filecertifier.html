@@ -228,19 +228,23 @@
 
   // ==== On-chain history fetch (only by submitter) ====
   async function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
+  function isRpcBusy(e){ return e && (e.code === -32603 || /rate|busy|timeout|exceeded/i.test(e.message||'')); }
   async function fetchOnChainHistory(submitter){
     try{
       if (!state.provider || !state.fc || !submitter) return [];
       var iface = new ethers.utils.Interface(FILE_CERTIFIER_ABI);
       var topic = iface.getEventTopic('FileCertified');
-      var addrTopic = ethers.utils.hexZeroPad(submitter, 32);
+      var addrNorm = ethers.utils.getAddress(submitter);
+      var addrTopic = ethers.utils.hexZeroPad(addrNorm.toLowerCase(), 32);
 
       var latest = await state.provider.getBlockNumber();
-      var start = CFG.deployBlock && CFG.deployBlock>0 ? CFG.deployBlock : Math.max(0, latest - 200000);
-      var step = 5000; // chunk ridotto per RPC BSC (evita -32603)
+      var start = CFG.deployBlock && CFG.deployBlock>0 ? CFG.deployBlock : Math.max(0, latest - 150000);
+      var step = 4000;                // start conservativo
+      var minStep = 256;              // non scendere sotto
+      var pause = 120;                // ms tra richieste
       var logs = [];
 
-      for (var from=start; from<=latest; from += step){
+      for (var from=start; from<=latest;){
         var to = Math.min(latest, from + step - 1);
         var tries = 0; var ok = false;
         while (!ok && tries < 3){
@@ -251,10 +255,12 @@
           }catch(e){
             tries++;
             console.warn('getLogs failed', {from,to,tries,msg:e && e.message});
-            await sleep(200 * tries); // backoff graduale
+            if (isRpcBusy(e) && step > minStep){ step = Math.max(minStep, Math.floor(step/2)); }
+            await sleep(200 * tries);
           }
         }
-        await sleep(80); // piccola pausa per non saturare RPC
+        from = to + 1;
+        await sleep(pause);
       }
 
       var out = [];
