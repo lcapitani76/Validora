@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -7,461 +7,272 @@
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <style>
     :root {
-      --bg: #0b1120; /* slate-950/navy */
-      --panel: #111827; /* gray-900 */
-      --muted: #9ca3af; /* gray-400 */
-      --text: #e5e7eb; /* gray-200 */
-      --accent: #3b82f6; /* blue-500 */
-      --accent-2: #22c55e; /* green-500 */
-      --warn: #f59e0b; /* amber-500 */
-      --error: #ef4444; /* red-500 */
-      --ok: #10b981; /* emerald-500 */
-      --border: #1f2937; /* gray-800 */
-      --card: #0f172a; /* slate-900 */
+      --bg: #0b1120; --panel: #111827; --muted: #9ca3af; --text: #e5e7eb;
+      --accent: #3b82f6; --accent-2: #22c55e; --warn: #f59e0b; --error: #ef4444; --border: #1f2937; --card: #0f172a;
     }
     * { box-sizing: border-box; }
-    body {
-      margin: 0; padding: 24px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
-      background: radial-gradient(1200px 800px at 100% -10%, #111827 0%, var(--bg) 40%);
-      color: var(--text);
-    }
+    body { margin:0; padding:24px; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background: radial-gradient(1200px 800px at 100% -10%, #111827 0%, var(--bg) 40%); color: var(--text); }
     h1 { font-size: 28px; margin: 0 0 4px; }
-    .sub { color: var(--muted); margin-bottom: 24px; }
-    .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
-    @media (min-width: 980px) { .grid { grid-template-columns: 1.2fr 1fr; } }
-    .card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
-    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
-    input, select, textarea { width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; color: var(--text); outline: none; }
-    input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.25); }
-    textarea { min-height: 80px; resize: vertical; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .btns { display: flex; gap: 10px; flex-wrap: wrap; }
-    button { background: var(--accent); border: none; color: white; padding: 10px 14px; border-radius: 10px; cursor: pointer; font-weight: 600; }
+    .sub { color: var(--muted); margin-bottom: 16px; }
+    .card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)); border:1px solid var(--border); border-radius:16px; padding:16px; }
+    .spaced { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .btns { display:flex; gap:10px; flex-wrap:wrap; }
+    button { background: var(--accent); border:none; color:white; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600; }
     button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
-    button.ghost { background: transparent; color: var(--muted); }
-    button.success { background: var(--accent-2); }
     button.warn { background: var(--warn); }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
-    .pill { display: inline-flex; align-items: center; gap: 8px; border: 1px dashed var(--border); padding: 6px 10px; border-radius: 999px; font-size: 12px; color: var(--muted); }
-    .spaced { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    button.success { background: var(--accent-2); }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    input { width: 100%; background: var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 12px; color: var(--text); }
+    label { display:block; font-size:12px; color: var(--muted); margin-bottom:6px; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .log { background:#0a0f1f; border:1px solid var(--border); border-radius:12px; padding:10px; font-size:12px; white-space:pre-wrap; max-height:220px; overflow:auto; }
+    .banner { border:1px dashed var(--warn); background: rgba(245,158,11,.08); color:#fde68a; padding:8px 12px; border-radius:12px; margin: 8px 0 16px; }
     .muted { color: var(--muted); }
-    .small { font-size: 12px; }
-    .log { background: #0a0f1f; border: 1px solid var(--border); border-radius: 12px; padding: 10px; font-size: 12px; white-space: pre-wrap; max-height: 220px; overflow: auto; }
-    .divider { height: 1px; background: var(--border); margin: 12px 0; }
-    .tag { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #111827; border: 1px solid var(--border); color: var(--muted); font-size: 11px; margin-right: 6px; }
   </style>
 </head>
 <body>
   <header class="spaced">
     <div>
-      <h1>Validora – File Certifier</h1>
-      <div class="sub">Certifica l'hash (keccak256) dei tuoi file su BSC usando VLD.</div>
+      <h1 data-i18n="title">Validora – File Certifier</h1>
+      <div class="sub" data-i18n="subtitle">Certify your file's keccak256 hash on BSC using VLD.</div>
     </div>
     <div class="btns">
-      <button id="btn-connect">Connetti Wallet</button>
-      <button id="btn-disconnect" class="secondary">Disconnetti</button>
+      <button id="btn-lang-en" class="secondary">EN</button>
+      <button id="btn-lang-it" class="secondary">IT</button>
+      <button id="btn-connect" data-i18n="connect">Connect Wallet</button>
+      <button id="btn-disconnect" class="secondary" data-i18n="disconnect" disabled>Disconnect</button>
     </div>
   </header>
 
-  <div class="grid" style="margin-top: 12px;">
-    <!-- Config -->
-    <section class="card">
-      <div class="spaced">
-        <h2 style="margin:0">Configurazione</h2>
-        <div class="pill small">Rete: <span id="net-name" class="mono">-</span></div>
-      </div>
-      <div class="row" style="margin-top: 12px;">
-        <div>
-          <label>Indirizzo contratto FileCertifier</label>
-          <input type="hidden" id="filecert-addr" value="0x32B0A57C00FCD8B0334a28F5E571037e205369dc" />
-        </div>
-        <div>
-          <label>Indirizzo token VLD (ERC20)</label>
-          <input id="vld-addr" placeholder="0x... (es. VLD test/main)" />
-        </div>
-      </div>
-      <div class="row" style="margin-top: 12px;">
-        <div>
-          <label>URI predefinita (opzionale)</label>
-          <input id="default-uri" placeholder="ipfs://... o https://..." />
-        </div>
-        <div>
-          <label>Persisti in locale</label>
-          <div class="btns">
-            <button id="btn-save" class="secondary">Salva</button>
-            <button id="btn-load" class="ghost">Carica</button>
-            <button id="btn-clear" class="ghost">Reset</button>
-          </div>
-        </div>
-      </div>
-      <div class="divider"></div>
-      <div class="row">
-        <div>
-          <div class="small muted">Base Fee:</div>
-          <div id="base-fee" class="mono">-</div>
-        </div>
-        <div>
-          <div class="small muted">Unit Fee / chunk:</div>
-          <div id="unit-fee" class="mono">-</div>
-        </div>
-      </div>
-      <div class="row" style="margin-top:8px;">
-        <div>
-          <div class="small muted">Chunk Size (bytes):</div>
-          <div id="chunk-size" class="mono">-</div>
-        </div>
-        <div>
-          <div class="small muted">Sconto batch (bps):</div>
-          <div id="disc-bps" class="mono">-</div>
-        </div>
-      </div>
-    </section>
+  <div id="net-banner" class="banner" style="display:none;"></div>
 
-    <!-- Actions / single -->
-    <section class="card">
-      <h2 style="margin-top:0">Certificazione singola</h2>
-      <div class="row">
-        <div>
-          <label>Seleziona file</label>
-          <input id="file-input" type="file" />
-        </div>
-        <div>
-          <label>URI (opzionale)</label>
-          <input id="uri-input" placeholder="ipfs://... (se vuoto usa default)" />
-        </div>
+  <!-- Single certify -->
+  <section class="card">
+    <h2 style="margin-top:0" data-i18n="singleTitle">Single file certification</h2>
+    <div class="row">
+      <div>
+        <label data-i18n="fileLabel">Select file</label>
+        <input id="file-input" type="file" />
       </div>
-      <div class="row" style="margin-top:12px;">
-        <div>
-          <label>Hash (keccak256)</label>
-          <input id="hash-out" class="mono" readonly />
-        </div>
-        <div>
-          <label>Dimensione (bytes)</label>
-          <input id="size-out" class="mono" readonly />
-        </div>
+      <div>
+        <label data-i18n="uriLabel">URI (optional)</label>
+        <input id="uri-input" placeholder="ipfs://..." />
       </div>
-      <div class="row" style="margin-top:12px;">
-        <div>
-          <label>Fee stimata (VLD)</label>
-          <input id="fee-out" class="mono" readonly />
-        </div>
-        <div class="btns" style="align-items:flex-end;">
-          <button id="btn-quote" class="secondary">Calcola Fee</button>
-          <button id="btn-approve" class="warn" disabled>Approva VLD</button>
-          <button id="btn-certify" class="success" disabled>Certifica</button>
-        </div>
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <div>
+        <label data-i18n="hashLabel">Hash (keccak256)</label>
+        <input id="hash-out" class="mono" readonly />
       </div>
-    </section>
+      <div>
+        <label data-i18n="sizeLabel">Size (bytes)</label>
+        <input id="size-out" class="mono" readonly />
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px;align-items:end;">
+      <div>
+        <label data-i18n="feeLabel">Estimated fee (VLD)</label>
+        <input id="fee-out" class="mono" readonly />
+      </div>
+      <div class="btns">
+        <button id="btn-quote" class="secondary" data-i18n="btnQuote">Calculate Fee</button>
+        <button id="btn-approve" class="warn" disabled data-i18n="btnApprove">Approve VLD</button>
+        <button id="btn-certify" class="success" disabled data-i18n="btnCertify">Certify</button>
+      </div>
+    </div>
+    <div class="muted" style="margin-top:8px;" data-i18n="privacyNote">Hashes are computed locally in your browser.</div>
+  </section>
 
-    <!-- Batch -->
-    <section class="card" style="grid-column: 1 / -1;">
-      <h2 style="margin-top:0">Certificazione batch</h2>
-      <div class="row">
-        <div>
-          <label>Seleziona più file</label>
-          <input id="files-batch" type="file" multiple />
-        </div>
-        <div>
-          <label>URI unico per il batch (opzionale)</label>
-          <input id="uri-batch" placeholder="ipfs://..." />
-        </div>
-      </div>
-      <div class="row" style="margin-top:12px;">
-        <div>
-          <label>Totale elementi</label>
-          <input id="batch-count" class="mono" readonly />
-        </div>
-        <div>
-          <label>Totale size (bytes)</label>
-          <input id="batch-total-size" class="mono" readonly />
-        </div>
-      </div>
-      <div class="row" style="margin-top:12px;">
-        <div>
-          <label>Fee stimata batch (VLD)</label>
-          <input id="batch-fee" class="mono" readonly />
-        </div>
-        <div class="btns" style="align-items:flex-end;">
-          <button id="btn-quote-batch" class="secondary">Calcola Fee Batch</button>
-          <button id="btn-approve-batch" class="warn" disabled>Approva VLD</button>
-          <button id="btn-certify-batch" class="success" disabled>Certifica Batch</button>
-        </div>
-      </div>
-      <div class="small muted" style="margin-top:8px;">Gli hash vengono calcolati in locale. In batch si usa <code>certifyBatch(hashes, sizes, uri)</code>.</div>
-    </section>
-
-    <!-- Logs -->
-    <section class="card" style="grid-column: 1 / -1;">
-      <h2 style="margin-top:0">Log</h2>
-      <div id="log" class="log"></div>
-    </section>
-  </div>
+  <section class="card" style="margin-top:16px;">
+    <h3 style="margin-top:0;" data-i18n="logTitle">Log</h3>
+    <div id="log" class="log"></div>
+  </section>
 
 <script>
 (function(){
   const { ethers } = window.ethers;
 
-  // ======= ABI minimi =======
+  // ==== Fixed configuration (hidden) ====
+  const CFG = {
+    chainId: 97, // BSC Testnet
+    fileCert: "0x32B0A57C00FCD8B0334a28F5E571037e205369dc", // FileCertifier on testnet
+    vld: "0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b" // VLD on testnet
+  };
+
+  // ==== i18n ====
+  const I18N = {
+    en: {
+      title:"Validora – File Certifier",
+      subtitle:"Certify your file's keccak256 hash on BSC using VLD.",
+      connect:"Connect Wallet", disconnect:"Disconnect",
+      networkWarn:"You're not on BSC Testnet (97). Please switch network in Metamask.",
+      singleTitle:"Single file certification",
+      fileLabel:"Select file", uriLabel:"URI (optional)",
+      hashLabel:"Hash (keccak256)", sizeLabel:"Size (bytes)",
+      feeLabel:"Estimated fee (VLD)", btnQuote:"Calculate Fee",
+      btnApprove:"Approve VLD", btnCertify:"Certify",
+      privacyNote:"Hashes are computed locally in your browser.",
+      logTitle:"Log",
+      noMM:"Metamask not detected",
+      needFile:"Select a file first",
+      needConnect:"Connect wallet first",
+    },
+    it: {
+      title:"Validora – Certificatore File",
+      subtitle:"Certifica l'hash keccak256 del tuo file su BSC usando VLD.",
+      connect:"Connetti Wallet", disconnect:"Disconnetti",
+      networkWarn:"Non sei su BSC Testnet (97). Cambia rete in Metamask.",
+      singleTitle:"Certificazione file singolo",
+      fileLabel:"Seleziona file", uriLabel:"URI (opzionale)",
+      hashLabel:"Hash (keccak256)", sizeLabel:"Dimensione (byte)",
+      feeLabel:"Fee stimata (VLD)", btnQuote:"Calcola Fee",
+      btnApprove:"Approva VLD", btnCertify:"Certifica",
+      privacyNote:"Gli hash sono calcolati in locale nel tuo browser.",
+      logTitle:"Log",
+      noMM:"Metamask non rilevato",
+      needFile:"Seleziona prima un file",
+      needConnect:"Connetti prima il wallet",
+    }
+  };
+  let lang = 'en';
+
+  function t(key){ return (I18N[lang] && I18N[lang][key]) || key; }
+  function applyI18n(){
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      el.textContent = t(el.getAttribute('data-i18n'));
+    });
+  }
+
+  // ==== Minimal ABIs ====
   const FILE_CERTIFIER_ABI = [
+    "function quoteItem(uint64 size) view returns (uint256)",
+    "function certify(bytes32 fileHash, uint64 size, string uri)",
     "function baseFee() view returns (uint256)",
     "function unitFee() view returns (uint256)",
     "function chunkSize() view returns (uint256)",
     "function batchDiscountBps() view returns (uint16)",
-    "function maxFileSize() view returns (uint64)",
-    "function maxBatchItems() view returns (uint32)",
-    "function maxURILen() view returns (uint32)",
-
-    "function quoteItem(uint64 size) view returns (uint256)",
-    "function quoteBatch(uint64[] sizes) view returns (uint256 total, uint256 preDiscount)",
-
-    "function certify(bytes32 fileHash, uint64 size, string uri)",
-    "function certifyBatch(bytes32[] hashes, uint64[] sizes, string uri)",
-
-    "event FileCertified(bytes32 indexed fileHash, address indexed submitter, string uri, uint64 size, uint256 feePaid)",
-    "event BatchCertified(bytes32 indexed batchId, address indexed submitter, uint256 items, uint256 totalFee)"
   ];
-
   const ERC20_ABI = [
-    "function name() view returns (string)",
-    "function symbol() view returns (string)",
     "function decimals() view returns (uint8)",
     "function allowance(address owner, address spender) view returns (uint256)",
     "function approve(address spender, uint256 amount) returns (bool)"
   ];
 
-  // ======= UI refs =======
-  const el = (id) => document.getElementById(id);
+  // ==== UI & state ====
+  const el = id => document.getElementById(id);
   const logEl = el('log');
-  function log(msg) { logEl.textContent += msg + "\n"; logEl.scrollTop = logEl.scrollHeight; }
-  function fmt18(bn) { try { return ethers.utils.formatUnits(bn || 0, 18); } catch { return String(bn); } }
+  function log(msg){ logEl.textContent += msg + "
+"; logEl.scrollTop = logEl.scrollHeight; }
+  function fmt18(bn){ try { return ethers.utils.formatUnits(bn||0, 18); } catch{ return String(bn); } }
 
-  const state = {
-    provider: null,
-    signer: null,
-    account: null,
-    netName: '-',
-    decimals: 18,
-    vld: null,
-    fc: null,
-    feeQuote: ethers.constants.Zero,
-    feeBatch: ethers.constants.Zero,
-  };
+  const state = { provider:null, signer:null, account:null, fc:null, vld:null, feeQuote: ethers.constants.Zero, decimals:18, chainId:null };
 
-  // ======= Wallet connect =======
-  async function connect() {
-    if (!window.ethereum) { alert('Metamask non rilevato'); return; }
+  function updateButtons(){
+    const connected = !!state.account;
+    el('btn-connect').disabled = connected;
+    el('btn-disconnect').disabled = !connected;
+  }
+
+  function showNetWarning(show){
+    const banner = document.getElementById('net-banner');
+    if (show){ banner.style.display='block'; banner.textContent = t('networkWarn'); }
+    else { banner.style.display='none'; banner.textContent=''; }
+  }
+
+  async function connect(){
+    if (!window.ethereum) { alert(t('noMM')); return; }
     await ethereum.request({ method: 'eth_requestAccounts' });
     state.provider = new ethers.providers.Web3Provider(window.ethereum);
     state.signer = state.provider.getSigner();
     state.account = await state.signer.getAddress();
     const net = await state.provider.getNetwork();
-    state.netName = net.name + ' (' + net.chainId + ')';
-    el('net-name').textContent = state.netName;
-    log('Connesso: ' + state.account);
-    await initContracts();
+    state.chainId = Number(net.chainId);
+    log(`Connected: ${state.account} | chainId ${state.chainId}`);
+    updateButtons();
+
+    if (state.chainId !== CFG.chainId){
+      showNetWarning(true);
+    } else {
+      showNetWarning(false);
+      await initContracts();
+    }
   }
   async function disconnect(){
-    state.provider = null; state.signer = null; state.account = null; state.vld = null; state.fc = null;
-    el('net-name').textContent = '-';
-    log('Disconnesso');
+    state.provider=null; state.signer=null; state.account=null; state.fc=null; state.vld=null; state.feeQuote=ethers.constants.Zero; state.chainId=null;
+    updateButtons();
+    showNetWarning(false);
+    log('Disconnected');
   }
 
-  // ======= Init contracts =======
   async function initContracts(){
-    const fcAddr = el('filecert-addr').value.trim();
-    const vldAddr = el('vld-addr').value.trim();
-    if (!fcAddr || !vldAddr || !state.signer) return;
-    state.fc = new ethers.Contract(fcAddr, FILE_CERTIFIER_ABI, state.signer);
-    state.vld = new ethers.Contract(vldAddr, ERC20_ABI, state.signer);
-
-    // fetch fee params
-    try {
-      const [baseFee, unitFee, chunkSize, disc, maxSize] = await Promise.all([
-        state.fc.baseFee(), state.fc.unitFee(), state.fc.chunkSize(), state.fc.batchDiscountBps(), state.fc.maxFileSize()
-      ]);
-      el('base-fee').textContent = fmt18(baseFee) + ' VLD';
-      el('unit-fee').textContent = fmt18(unitFee) + ' VLD';
-      el('chunk-size').textContent = String(chunkSize);
-      el('disc-bps').textContent = String(disc);
-      log('Parametri fee caricati. maxFileSize=' + maxSize);
-    } catch(e){ log('Errore lettura parametri: ' + (e.message || e)); }
-
-    // detect decimals (in caso non sia 18)
-    try { state.decimals = await state.vld.decimals(); } catch {}
+    state.fc = new ethers.Contract(CFG.fileCert, FILE_CERTIFIER_ABI, state.signer);
+    state.vld = new ethers.Contract(CFG.vld, ERC20_ABI, state.signer);
+    try { state.decimals = await state.vld.decimals(); } catch{}
   }
 
-  // ======= Helpers =======
-  function toBytes(buffer) { return new Uint8Array(buffer); }
-
+  // Helpers
+  function toBytes(buffer){ return new Uint8Array(buffer); }
   async function hashFile(file){
     const buf = await file.arrayBuffer();
-    const bytes = toBytes(buf);
-    const hex = ethers.utils.hexlify(bytes);
+    const hex = ethers.utils.hexlify(toBytes(buf));
     return ethers.utils.keccak256(hex);
   }
-
-  async function ensureAllowance(required){
-    const owner = state.account;
-    const spender = el('filecert-addr').value.trim();
-    const allowance = await state.vld.allowance(owner, spender);
+  async function hasAllowance(required){
+    const allowance = await state.vld.allowance(state.account, CFG.fileCert);
     return ethers.BigNumber.from(allowance).gte(required);
   }
 
-  // ======= Single certify flow =======
+  // Events
+  el('btn-connect').addEventListener('click', connect);
+  el('btn-disconnect').addEventListener('click', disconnect);
+
+  el('btn-lang-en').addEventListener('click', ()=>{ lang='en'; applyI18n(); });
+  el('btn-lang-it').addEventListener('click', ()=>{ lang='it'; applyI18n(); });
+
   el('file-input').addEventListener('change', async (e)=>{
     const f = e.target.files[0];
     if (!f) return;
     el('size-out').value = String(f.size);
-    el('hash-out').value = 'calcolo...';
-    try {
-      const h = await hashFile(f);
-      el('hash-out').value = h;
-      log('Hash calcolato: ' + h);
-    } catch(err){
-      el('hash-out').value = '';
-      log('Errore hash: ' + (err.message || err));
-    }
+    el('hash-out').value = '...';
+    try { const h = await hashFile(f); el('hash-out').value = h; log('Hash: ' + h); } catch(err){ el('hash-out').value=''; log('Hash error: ' + (err.message||err)); }
   });
 
   el('btn-quote').addEventListener('click', async ()=>{
-    if (!state.fc) { return alert('Connetti wallet e imposta indirizzi'); }
+    if (!state.fc || !state.account) { return alert(t('needConnect')); }
     const size = parseInt(el('size-out').value || '0', 10);
-    if (!size) return alert('Seleziona prima un file');
+    if (!size) return alert(t('needFile'));
     const fee = await state.fc.quoteItem(size);
     state.feeQuote = fee;
     el('fee-out').value = fmt18(fee);
-    const ok = await ensureAllowance(fee);
+    const ok = await hasAllowance(fee);
     el('btn-approve').disabled = ok;
     el('btn-certify').disabled = !ok;
-    log('Fee stimata (singolo): ' + fmt18(fee) + ' VLD');
+    log('Estimated fee: ' + fmt18(fee) + ' VLD');
   });
 
   el('btn-approve').addEventListener('click', async ()=>{
-    if (!state.vld) return alert('Token VLD non inizializzato');
-    const amount = state.feeQuote;
-    if (!amount || amount.isZero()) return alert('Calcola prima la fee');
-    const spender = el('filecert-addr').value.trim();
-    const tx = await state.vld.approve(spender, amount);
+    if (!state.vld) return alert(t('needConnect'));
+    const amount = state.feeQuote; if (!amount || amount.isZero()) return alert('Quote first');
+    const tx = await state.vld.approve(CFG.fileCert, amount);
     log('approve tx: ' + tx.hash);
     await tx.wait();
-    log('approve confermata');
-    el('btn-approve').disabled = true;
-    el('btn-certify').disabled = false;
+    log('approve confirmed');
+    el('btn-approve').disabled = true; el('btn-certify').disabled = false;
   });
 
   el('btn-certify').addEventListener('click', async ()=>{
-    const f = el('file-input').files[0];
-    if (!f) return alert('Seleziona file');
-    const size = f.size;
-    const hash = el('hash-out').value;
-    if (!hash) return alert('Hash non calcolato');
-    const uri = el('uri-input').value.trim() || el('default-uri').value.trim() || "";
+    const f = el('file-input').files[0]; if (!f) return alert(t('needFile'));
+    const hash = el('hash-out').value; if (!hash) return alert('Missing hash');
+    const size = f.size; const uri = (el('uri-input').value || '').trim();
     const tx = await state.fc.certify(hash, size, uri);
     log('certify tx: ' + tx.hash);
     const rc = await tx.wait();
-    log('certify confermata – block ' + rc.blockNumber);
+    log('certify confirmed – block ' + rc.blockNumber);
   });
 
-  // ======= Batch flow =======
-  async function buildBatch(){
-    const files = Array.from(el('files-batch').files || []);
-    const sizes = [];
-    const hashes = [];
-    for (const f of files){
-      sizes.push(f.size);
-      const h = await hashFile(f);
-      hashes.push(h);
-    }
-    return { files, sizes, hashes };
-  }
-
-  el('btn-quote-batch').addEventListener('click', async ()=>{
-    if (!state.fc) return alert('Connetti wallet e imposta indirizzi');
-    const files = Array.from(el('files-batch').files || []);
-    if (files.length === 0) return alert('Seleziona file');
-
-    el('batch-count').value = String(files.length);
-    el('batch-total-size').value = String(files.reduce((a,f)=>a+f.size,0));
-
-    const { sizes } = await buildBatch();
-    const res = await state.fc.quoteBatch(sizes);
-    const total = res.total || res[0]; // v5 ritorna oggetto; fallback tuple
-    state.feeBatch = total;
-    el('batch-fee').value = fmt18(total);
-    const ok = await ensureAllowance(total);
-    el('btn-approve-batch').disabled = ok;
-    el('btn-certify-batch').disabled = !ok;
-    log('Fee stimata (batch): ' + fmt18(total) + ' VLD');
-  });
-
-  el('btn-approve-batch').addEventListener('click', async ()=>{
-    const spender = el('filecert-addr').value.trim();
-    const amount = state.feeBatch;
-    if (!amount || amount.isZero()) return alert('Calcola prima la fee batch');
-    const tx = await state.vld.approve(spender, amount);
-    log('approve batch tx: ' + tx.hash);
-    await tx.wait();
-    log('approve batch confermata');
-    el('btn-approve-batch').disabled = true;
-    el('btn-certify-batch').disabled = false;
-  });
-
-  el('btn-certify-batch').addEventListener('click', async ()=>{
-    const files = Array.from(el('files-batch').files || []);
-    if (files.length === 0) return alert('Seleziona file');
-    const { sizes, hashes } = await buildBatch();
-    const uri = el('uri-batch').value.trim() || el('default-uri').value.trim() || "";
-    const tx = await state.fc.certifyBatch(hashes, sizes, uri);
-    log('certifyBatch tx: ' + tx.hash);
-    const rc = await tx.wait();
-    log('certifyBatch confermata – block ' + rc.blockNumber);
-  });
-
-  // ======= Save/load config =======
-  el('btn-save').addEventListener('click', ()=>{
-    const cfg = {
-      fc: el('filecert-addr').value.trim(),
-      vld: el('vld-addr').value.trim(),
-      uri: el('default-uri').value.trim(),
-    };
-    localStorage.setItem('validora_fc_cfg', JSON.stringify(cfg));
-    log('Configurazione salvata');
-  });
-
-  el('btn-load').addEventListener('click', ()=>{
-    const raw = localStorage.getItem('validora_fc_cfg');
-    if (!raw) return log('Nessuna config salvata');
-    try {
-      const cfg = JSON.parse(raw);
-      el('filecert-addr').value = cfg.fc || '';
-      el('vld-addr').value = cfg.vld || '';
-      el('default-uri').value = cfg.uri || '';
-      log('Configurazione caricata');
-      if (state.signer) initContracts();
-    } catch(e){ log('Errore load config'); }
-  });
-
-  el('btn-clear').addEventListener('click', ()=>{
-    localStorage.removeItem('validora_fc_cfg');
-    log('Config locale cancellata');
-  });
-
-  // Buttons connect/disconnect
-  el('btn-connect').addEventListener('click', connect);
-  el('btn-disconnect').addEventListener('click', disconnect);
-
-  // Autoload config on start
-  (function preload(){
-    const raw = localStorage.getItem('validora_fc_cfg');
-    if (!raw) return;
-    try {
-      const cfg = JSON.parse(raw);
-      el('filecert-addr').value = cfg.fc || '';
-      el('vld-addr').value = cfg.vld || '';
-      el('default-uri').value = cfg.uri || '';
-    } catch {}
-  })();
+  // Init i18n default EN
+  applyI18n();
 })();
 </script>
 </body>
