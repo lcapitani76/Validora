@@ -179,8 +179,7 @@
   // ==== UI & state ====
   function el(id){ return document.getElementById(id); }
   var logEl = el('log');
-  function log(msg){ logEl.textContent += msg + "
-"; logEl.scrollTop = logEl.scrollHeight; }
+  function log(msg){ logEl.textContent += msg + " "; logEl.scrollTop = logEl.scrollHeight; }
   function fmt18(bn){ try { return ethersRef.utils.formatUnits(bn||0, 18); } catch(e){ return String(bn); } }
 
   var state = { provider:null, signer:null, account:null, fc:null, vld:null, feeQuote: ethersRef.constants.Zero, decimals:18, chainId:null };
