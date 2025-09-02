@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Validora – File Certifier dApp</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b1120; /* slate-950/navy */
+      --panel: #111827; /* gray-900 */
+      --muted: #9ca3af; /* gray-400 */
+      --text: #e5e7eb; /* gray-200 */
+      --accent: #3b82f6; /* blue-500 */
+      --accent-2: #22c55e; /* green-500 */
+      --warn: #f59e0b; /* amber-500 */
+      --error: #ef4444; /* red-500 */
+      --ok: #10b981; /* emerald-500 */
+      --border: #1f2937; /* gray-800 */
+      --card: #0f172a; /* slate-900 */
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 24px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+      background: radial-gradient(1200px 800px at 100% -10%, #111827 0%, var(--bg) 40%);
+      color: var(--text);
+    }
+    h1 { font-size: 28px; margin: 0 0 4px; }
+    .sub { color: var(--muted); margin-bottom: 24px; }
+    .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+    @media (min-width: 980px) { .grid { grid-template-columns: 1.2fr 1fr; } }
+    .card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    input, select, textarea { width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; color: var(--text); outline: none; }
+    input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.25); }
+    textarea { min-height: 80px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .btns { display: flex; gap: 10px; flex-wrap: wrap; }
+    button { background: var(--accent); border: none; color: white; padding: 10px 14px; border-radius: 10px; cursor: pointer; font-weight: 600; }
+    button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    button.ghost { background: transparent; color: var(--muted); }
+    button.success { background: var(--accent-2); }
+    button.warn { background: var(--warn); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .pill { display: inline-flex; align-items: center; gap: 8px; border: 1px dashed var(--border); padding: 6px 10px; border-radius: 999px; font-size: 12px; color: var(--muted); }
+    .spaced { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+    .log { background: #0a0f1f; border: 1px solid var(--border); border-radius: 12px; padding: 10px; font-size: 12px; white-space: pre-wrap; max-height: 220px; overflow: auto; }
+    .divider { height: 1px; background: var(--border); margin: 12px 0; }
+    .tag { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #111827; border: 1px solid var(--border); color: var(--muted); font-size: 11px; margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <header class="spaced">
+    <div>
+      <h1>Validora – File Certifier</h1>
+      <div class="sub">Certifica l'hash (keccak256) dei tuoi file su BSC usando VLD.</div>
+    </div>
+    <div class="btns">
+      <button id="btn-connect">Connetti Wallet</button>
+      <button id="btn-disconnect" class="secondary">Disconnetti</button>
+    </div>
+  </header>
+
+  <div class="grid" style="margin-top: 12px;">
+    <!-- Config -->
+    <section class="card">
+      <div class="spaced">
+        <h2 style="margin:0">Configurazione</h2>
+        <div class="pill small">Rete: <span id="net-name" class="mono">-</span></div>
+      </div>
+      <div class="row" style="margin-top: 12px;">
+        <div>
+          <label>Indirizzo contratto FileCertifier</label>
+          <input id="filecert-addr" placeholder="0x... (es. 0x32B0...69dc)" />
+        </div>
+        <div>
+          <label>Indirizzo token VLD (ERC20)</label>
+          <input id="vld-addr" placeholder="0x... (es. VLD test/main)" />
+        </div>
+      </div>
+      <div class="row" style="margin-top: 12px;">
+        <div>
+          <label>URI predefinita (opzionale)</label>
+          <input id="default-uri" placeholder="ipfs://... o https://..." />
+        </div>
+        <div>
+          <label>Persisti in locale</label>
+          <div class="btns">
+            <button id="btn-save" class="secondary">Salva</button>
+            <button id="btn-load" class="ghost">Carica</button>
+            <button id="btn-clear" class="ghost">Reset</button>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="row">
+        <div>
+          <div class="small muted">Base Fee:</div>
+          <div id="base-fee" class="mono">-</div>
+        </div>
+        <div>
+          <div class="small muted">Unit Fee / chunk:</div>
+          <div id="unit-fee" class="mono">-</div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <div>
+          <div class="small muted">Chunk Size (bytes):</div>
+          <div id="chunk-size" class="mono">-</div>
+        </div>
+        <div>
+          <div class="small muted">Sconto batch (bps):</div>
+          <div id="disc-bps" class="mono">-</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Actions / single -->
+    <section class="card">
+      <h2 style="margin-top:0">Certificazione singola</h2>
+      <div class="row">
+        <div>
+          <label>Seleziona file</label>
+          <input id="file-input" type="file" />
+        </div>
+        <div>
+          <label>URI (opzionale)</label>
+          <input id="uri-input" placeholder="ipfs://... (se vuoto usa default)" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div>
+          <label>Hash (keccak256)</label>
+          <input id="hash-out" class="mono" readonly />
+        </div>
+        <div>
+          <label>Dimensione (bytes)</label>
+          <input id="size-out" class="mono" readonly />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div>
+          <label>Fee stimata (VLD)</label>
+          <input id="fee-out" class="mono" readonly />
+        </div>
+        <div class="btns" style="align-items:flex-end;">
+          <button id="btn-quote" class="secondary">Calcola Fee</button>
+          <button id="btn-approve" class="warn" disabled>Approva VLD</button>
+          <button id="btn-certify" class="success" disabled>Certifica</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Batch -->
+    <section class="card" style="grid-column: 1 / -1;">
+      <h2 style="margin-top:0">Certificazione batch</h2>
+      <div class="row">
+        <div>
+          <label>Seleziona più file</label>
+          <input id="files-batch" type="file" multiple />
+        </div>
+        <div>
+          <label>URI unico per il batch (opzionale)</label>
+          <input id="uri-batch" placeholder="ipfs://..." />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div>
+          <label>Totale elementi</label>
+          <input id="batch-count" class="mono" readonly />
+        </div>
+        <div>
+          <label>Totale size (bytes)</label>
+          <input id="batch-total-size" class="mono" readonly />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div>
+          <label>Fee stimata batch (VLD)</label>
+          <input id="batch-fee" class="mono" readonly />
+        </div>
+        <div class="btns" style="align-items:flex-end;">
+          <button id="btn-quote-batch" class="secondary">Calcola Fee Batch</button>
+          <button id="btn-approve-batch" class="warn" disabled>Approva VLD</button>
+          <button id="btn-certify-batch" class="success" disabled>Certifica Batch</button>
+        </div>
+      </div>
+      <div class="small muted" style="margin-top:8px;">Gli hash vengono calcolati in locale. In batch si usa <code>certifyBatch(hashes, sizes, uri)</code>.</div>
+    </section>
+
+    <!-- Logs -->
+    <section class="card" style="grid-column: 1 / -1;">
+      <h2 style="margin-top:0">Log</h2>
+      <div id="log" class="log"></div>
+    </section>
+  </div>
+
+<script>
+(function(){
+  const { ethers } = window.ethers;
+
+  // ======= ABI minimi =======
+  const FILE_CERTIFIER_ABI = [
+    "function baseFee() view returns (uint256)",
+    "function unitFee() view returns (uint256)",
+    "function chunkSize() view returns (uint256)",
+    "function batchDiscountBps() view returns (uint16)",
+    "function maxFileSize() view returns (uint64)",
+    "function maxBatchItems() view returns (uint32)",
+    "function maxURILen() view returns (uint32)",
+
+    "function quoteItem(uint64 size) view returns (uint256)",
+    "function quoteBatch(uint64[] sizes) view returns (uint256 total, uint256 preDiscount)",
+
+    "function certify(bytes32 fileHash, uint64 size, string uri)",
+    "function certifyBatch(bytes32[] hashes, uint64[] sizes, string uri)",
+
+    "event FileCertified(bytes32 indexed fileHash, address indexed submitter, string uri, uint64 size, uint256 feePaid)",
+    "event BatchCertified(bytes32 indexed batchId, address indexed submitter, uint256 items, uint256 totalFee)"
+  ];
+
+  const ERC20_ABI = [
+    "function name() view returns (string)",
+    "function symbol() view returns (string)",
+    "function decimals() view returns (uint8)",
+    "function allowance(address owner, address spender) view returns (uint256)",
+    "function approve(address spender, uint256 amount) returns (bool)"
+  ];
+
+  // ======= UI refs =======
+  const el = (id) => document.getElementById(id);
+  const logEl = el('log');
+  function log(msg) { logEl.textContent += msg + "\n"; logEl.scrollTop = logEl.scrollHeight; }
+  function fmt18(bn) { try { return ethers.utils.formatUnits(bn || 0, 18); } catch { return String(bn); } }
+
+  const state = {
+    provider: null,
+    signer: null,
+    account: null,
+    netName: '-',
+    decimals: 18,
+    vld: null,
+    fc: null,
+    feeQuote: ethers.constants.Zero,
+    feeBatch: ethers.constants.Zero,
+  };
+
+  // ======= Wallet connect =======
+  async function connect() {
+    if (!window.ethereum) { alert('Metamask non rilevato'); return; }
+    await ethereum.request({ method: 'eth_requestAccounts' });
+    state.provider = new ethers.providers.Web3Provider(window.ethereum);
+    state.signer = state.provider.getSigner();
+    state.account = await state.signer.getAddress();
+    const net = await state.provider.getNetwork();
+    state.netName = net.name + ' (' + net.chainId + ')';
+    el('net-name').textContent = state.netName;
+    log('Connesso: ' + state.account);
+    await initContracts();
+  }
+  async function disconnect(){
+    state.provider = null; state.signer = null; state.account = null; state.vld = null; state.fc = null;
+    el('net-name').textContent = '-';
+    log('Disconnesso');
+  }
+
+  // ======= Init contracts =======
+  async function initContracts(){
+    const fcAddr = el('filecert-addr').value.trim();
+    const vldAddr = el('vld-addr').value.trim();
+    if (!fcAddr || !vldAddr || !state.signer) return;
+    state.fc = new ethers.Contract(fcAddr, FILE_CERTIFIER_ABI, state.signer);
+    state.vld = new ethers.Contract(vldAddr, ERC20_ABI, state.signer);
+
+    // fetch fee params
+    try {
+      const [baseFee, unitFee, chunkSize, disc, maxSize] = await Promise.all([
+        state.fc.baseFee(), state.fc.unitFee(), state.fc.chunkSize(), state.fc.batchDiscountBps(), state.fc.maxFileSize()
+      ]);
+      el('base-fee').textContent = fmt18(baseFee) + ' VLD';
+      el('unit-fee').textContent = fmt18(unitFee) + ' VLD';
+      el('chunk-size').textContent = String(chunkSize);
+      el('disc-bps').textContent = String(disc);
+      log('Parametri fee caricati. maxFileSize=' + maxSize);
+    } catch(e){ log('Errore lettura parametri: ' + (e.message || e)); }
+
+    // detect decimals (in caso non sia 18)
+    try { state.decimals = await state.vld.decimals(); } catch {}
+  }
+
+  // ======= Helpers =======
+  function toBytes(buffer) { return new Uint8Array(buffer); }
+
+  async function hashFile(file){
+    const buf = await file.arrayBuffer();
+    const bytes = toBytes(buf);
+    const hex = ethers.utils.hexlify(bytes);
+    return ethers.utils.keccak256(hex);
+  }
+
+  async function ensureAllowance(required){
+    const owner = state.account;
+    const spender = el('filecert-addr').value.trim();
+    const allowance = await state.vld.allowance(owner, spender);
+    return ethers.BigNumber.from(allowance).gte(required);
+  }
+
+  // ======= Single certify flow =======
+  el('file-input').addEventListener('change', async (e)=>{
+    const f = e.target.files[0];
+    if (!f) return;
+    el('size-out').value = String(f.size);
+    el('hash-out').value = 'calcolo...';
+    try {
+      const h = await hashFile(f);
+      el('hash-out').value = h;
+      log('Hash calcolato: ' + h);
+    } catch(err){
+      el('hash-out').value = '';
+      log('Errore hash: ' + (err.message || err));
+    }
+  });
+
+  el('btn-quote').addEventListener('click', async ()=>{
+    if (!state.fc) { return alert('Connetti wallet e imposta indirizzi'); }
+    const size = parseInt(el('size-out').value || '0', 10);
+    if (!size) return alert('Seleziona prima un file');
+    const fee = await state.fc.quoteItem(size);
+    state.feeQuote = fee;
+    el('fee-out').value = fmt18(fee);
+    const ok = await ensureAllowance(fee);
+    el('btn-approve').disabled = ok;
+    el('btn-certify').disabled = !ok;
+    log('Fee stimata (singolo): ' + fmt18(fee) + ' VLD');
+  });
+
+  el('btn-approve').addEventListener('click', async ()=>{
+    if (!state.vld) return alert('Token VLD non inizializzato');
+    const amount = state.feeQuote;
+    if (!amount || amount.isZero()) return alert('Calcola prima la fee');
+    const spender = el('filecert-addr').value.trim();
+    const tx = await state.vld.approve(spender, amount);
+    log('approve tx: ' + tx.hash);
+    await tx.wait();
+    log('approve confermata');
+    el('btn-approve').disabled = true;
+    el('btn-certify').disabled = false;
+  });
+
+  el('btn-certify').addEventListener('click', async ()=>{
+    const f = el('file-input').files[0];
+    if (!f) return alert('Seleziona file');
+    const size = f.size;
+    const hash = el('hash-out').value;
+    if (!hash) return alert('Hash non calcolato');
+    const uri = el('uri-input').value.trim() || el('default-uri').value.trim() || "";
+    const tx = await state.fc.certify(hash, size, uri);
+    log('certify tx: ' + tx.hash);
+    const rc = await tx.wait();
+    log('certify confermata – block ' + rc.blockNumber);
+  });
+
+  // ======= Batch flow =======
+  async function buildBatch(){
+    const files = Array.from(el('files-batch').files || []);
+    const sizes = [];
+    const hashes = [];
+    for (const f of files){
+      sizes.push(f.size);
+      const h = await hashFile(f);
+      hashes.push(h);
+    }
+    return { files, sizes, hashes };
+  }
+
+  el('btn-quote-batch').addEventListener('click', async ()=>{
+    if (!state.fc) return alert('Connetti wallet e imposta indirizzi');
+    const files = Array.from(el('files-batch').files || []);
+    if (files.length === 0) return alert('Seleziona file');
+
+    el('batch-count').value = String(files.length);
+    el('batch-total-size').value = String(files.reduce((a,f)=>a+f.size,0));
+
+    const { sizes } = await buildBatch();
+    const res = await state.fc.quoteBatch(sizes);
+    const total = res.total || res[0]; // v5 ritorna oggetto; fallback tuple
+    state.feeBatch = total;
+    el('batch-fee').value = fmt18(total);
+    const ok = await ensureAllowance(total);
+    el('btn-approve-batch').disabled = ok;
+    el('btn-certify-batch').disabled = !ok;
+    log('Fee stimata (batch): ' + fmt18(total) + ' VLD');
+  });
+
+  el('btn-approve-batch').addEventListener('click', async ()=>{
+    const spender = el('filecert-addr').value.trim();
+    const amount = state.feeBatch;
+    if (!amount || amount.isZero()) return alert('Calcola prima la fee batch');
+    const tx = await state.vld.approve(spender, amount);
+    log('approve batch tx: ' + tx.hash);
+    await tx.wait();
+    log('approve batch confermata');
+    el('btn-approve-batch').disabled = true;
+    el('btn-certify-batch').disabled = false;
+  });
+
+  el('btn-certify-batch').addEventListener('click', async ()=>{
+    const files = Array.from(el('files-batch').files || []);
+    if (files.length === 0) return alert('Seleziona file');
+    const { sizes, hashes } = await buildBatch();
+    const uri = el('uri-batch').value.trim() || el('default-uri').value.trim() || "";
+    const tx = await state.fc.certifyBatch(hashes, sizes, uri);
+    log('certifyBatch tx: ' + tx.hash);
+    const rc = await tx.wait();
+    log('certifyBatch confermata – block ' + rc.blockNumber);
+  });
+
+  // ======= Save/load config =======
+  el('btn-save').addEventListener('click', ()=>{
+    const cfg = {
+      fc: el('filecert-addr').value.trim(),
+      vld: el('vld-addr').value.trim(),
+      uri: el('default-uri').value.trim(),
+    };
+    localStorage.setItem('validora_fc_cfg', JSON.stringify(cfg));
+    log('Configurazione salvata');
+  });
+
+  el('btn-load').addEventListener('click', ()=>{
+    const raw = localStorage.getItem('validora_fc_cfg');
+    if (!raw) return log('Nessuna config salvata');
+    try {
+      const cfg = JSON.parse(raw);
+      el('filecert-addr').value = cfg.fc || '';
+      el('vld-addr').value = cfg.vld || '';
+      el('default-uri').value = cfg.uri || '';
+      log('Configurazione caricata');
+      if (state.signer) initContracts();
+    } catch(e){ log('Errore load config'); }
+  });
+
+  el('btn-clear').addEventListener('click', ()=>{
+    localStorage.removeItem('validora_fc_cfg');
+    log('Config locale cancellata');
+  });
+
+  // Buttons connect/disconnect
+  el('btn-connect').addEventListener('click', connect);
+  el('btn-disconnect').addEventListener('click', disconnect);
+
+  // Autoload config on start
+  (function preload(){
+    const raw = localStorage.getItem('validora_fc_cfg');
+    if (!raw) return;
+    try {
+      const cfg = JSON.parse(raw);
+      el('filecert-addr').value = cfg.fc || '';
+      el('vld-addr').value = cfg.vld || '';
+      el('default-uri').value = cfg.uri || '';
+    } catch {}
+  })();
+})();
+</script>
+</body>
+</html>
