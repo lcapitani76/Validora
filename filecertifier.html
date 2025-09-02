@@ -162,8 +162,7 @@
   // ==== UI & state ====
   const el = id => document.getElementById(id);
   const logEl = el('log');
-  function log(msg){ logEl.textContent += msg + "
-"; logEl.scrollTop = logEl.scrollHeight; }
+  function log(msg){ logEl.textContent += msg + " "; logEl.scrollTop = logEl.scrollHeight; }
   function fmt18(bn){ try { return ethers.utils.formatUnits(bn||0, 18); } catch{ return String(bn); } }
 
   const state = { provider:null, signer:null, account:null, fc:null, vld:null, feeQuote: ethers.constants.Zero, decimals:18, chainId:null };
