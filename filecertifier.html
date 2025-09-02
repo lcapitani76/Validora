@@ -32,6 +32,8 @@
     .pill { display:inline-block; font-size:12px; color:var(--muted); border:1px dashed var(--border); border-radius:999px; padding:4px 8px; }
     a { color:#93c5fd; text-decoration:none; }
     a:hover { text-decoration:underline; }
+    .pager { display:flex; align-items:center; justify-content:space-between; margin-top:12px; }
+    .small { font-size:12px; }
   </style>
 </head>
 <body>
@@ -89,10 +91,19 @@
 
   <!-- History -->
   <section class="card" style="margin-top:16px;">
-    <h3 style="margin-top:0;" data-i18n="historyTitle">My Certifications</h3>
+    <div class="spaced" style="margin-bottom:8px;">
+      <h3 style="margin:0;" data-i18n="historyTitle">My Certifications</h3>
+      <div class="btns">
+        <button id="btn-refresh-history" class="secondary" data-i18n="refresh">Refresh</button>
+      </div>
+    </div>
     <div id="history-list" class="hist" data-i18n-empty="emptyHistory"></div>
-    <div class="btns" style="margin-top:12px;">
-      <button id="btn-clear-history" class="secondary" data-i18n="clearHistory">Clear history</button>
+    <div id="pager" class="pager">
+      <div class="small muted"><span data-i18n="page">Page</span> <span id="page-cur">1</span> <span data-i18n="of">of</span> <span id="page-total">1</span></div>
+      <div class="btns">
+        <button id="btn-prev" class="secondary" data-i18n="prev" disabled>Prev</button>
+        <button id="btn-next" class="secondary" data-i18n="next" disabled>Next</button>
+      </div>
     </div>
   </section>
 
@@ -105,7 +116,8 @@
   var CFG = {
     chainId: 97, // BSC Testnet
     fileCert: "0x32B0A57C00FCD8B0334a28F5E571037e205369dc",
-    vld: "0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b"
+    vld: "0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b",
+    deployBlock: 0 // set to the FileCertifier deploy block if you know it
   };
 
   // ==== i18n ====
@@ -131,7 +143,12 @@
       emptyHistory:"No certifications yet.",
       needFile:"Select a file first",
       needConnect:"Connect wallet first",
-      noMM:"Metamask not detected"
+      noMM:"Metamask not detected",
+      refresh:"Refresh",
+      prev:"Prev",
+      next:"Next",
+      page:"Page",
+      of:"of"
     },
     it: {
       title:"Validora – Certificatore File",
@@ -154,7 +171,12 @@
       emptyHistory:"Nessuna certificazione ancora.",
       needFile:"Seleziona prima un file",
       needConnect:"Connetti prima il wallet",
-      noMM:"Metamask non rilevato"
+      noMM:"Metamask non rilevato",
+      refresh:"Aggiorna",
+      prev:"Prec",
+      next:"Succ",
+      page:"Pagina",
+      of:"di"
     }
   };
   var lang = 'en';
@@ -184,52 +206,98 @@
     "function approve(address spender, uint256 amount) returns (bool)"
   ];
 
-  // ==== UI helpers & state ====
+  // ==== Helpers & state ====
   function el(id){ return document.getElementById(id); }
-  function log(msg){ try{ console.log(msg); }catch(e){} }
   function fmt18(bn){ try { return ethers.utils.formatUnits(bn||0, 18); } catch(e){ return String(bn); } }
   function shortHash(h){ if (!h) return ''; return h.slice(0,10) + '…' + h.slice(-6); }
   function formatBytes(n){ var x=Number(n)||0; if (x<1024) return x+" B"; var k=x/1024; if (k<1024) return k.toFixed(2)+" KB"; var m=k/1024; if (m<1024) return m.toFixed(2)+" MB"; var g=m/1024; return g.toFixed(2)+" GB"; }
   function explorerBase(chainId){ if (chainId===97) return 'https://testnet.bscscan.com'; if (chainId===56) return 'https://bscscan.com'; return 'https://bscscan.com'; }
 
-  var state = { provider:null, signer:null, account:null, fc:null, vld:null, feeQuote: ethers.constants.Zero, decimals:18, chainId:null };
+  var state = {
+    provider:null, signer:null, account:null, fc:null, vld:null, feeQuote: ethers.constants.Zero, decimals:18, chainId:null,
+    history: [], page: 1, perPage: 10
+  };
 
   function updateButtons(){ var connected = !!state.account; el('btn-connect').disabled = connected; el('btn-disconnect').disabled = !connected; }
   function showNetWarning(show){ var banner = el('net-banner'); if (show){ banner.style.display='block'; banner.textContent = t('networkWarn'); } else { banner.style.display='none'; banner.textContent=''; } }
 
-  // ==== History (localStorage) ====
-  function loadHistory(){ try { return JSON.parse(localStorage.getItem('validora_history')||'[]')||[]; } catch(e){ return []; } }
-  function saveHistory(arr){ try { localStorage.setItem('validora_history', JSON.stringify(arr)); } catch(e){} }
-  function addHistory(rec){ var arr = loadHistory(); arr.push(rec); if (arr.length>100) arr = arr.slice(-100); saveHistory(arr); renderHistory(); }
+  // ==== On-chain history fetch (only by submitter) ====
+  async function fetchOnChainHistory(submitter){
+    if (!state.provider) return [];
+    var iface = new ethers.utils.Interface(FILE_CERTIFIER_ABI);
+    var topic = iface.getEventTopic('FileCertified');
+    var paddedAddr = ethers.utils.hexZeroPad((submitter||'').toLowerCase(), 32);
+    var latest = await state.provider.getBlockNumber();
+    var start = CFG.deployBlock && CFG.deployBlock>0 ? CFG.deployBlock : Math.max(0, latest - 300000);
+    var step = 20000;
+    var logs = [];
+    for (var from=start; from<=latest; from += step){
+      var to = Math.min(latest, from + step - 1);
+      try{
+        var chunk = await state.provider.getLogs({ address: CFG.fileCert, fromBlock: from, toBlock: to, topics: [topic, null, paddedAddr] });
+        if (chunk && chunk.length) logs = logs.concat(chunk);
+      }catch(e){ /* ignore chunk errors */ }
+    }
+    var out = [];
+    var tsCache = {};
+    for (var i=0;i<logs.length;i++){
+      var l = logs[i];
+      try{
+        var parsed = iface.parseLog(l);
+        var bn = l.blockNumber;
+        var ts = tsCache[bn];
+        if (!ts){ var blk = await state.provider.getBlock(bn); ts = blk ? blk.timestamp*1000 : Date.now(); tsCache[bn]=ts; }
+        out.push({ tx: l.transactionHash, hash: parsed.args.fileHash, size: parsed.args.size.toNumber ? parsed.args.size.toNumber() : parsed.args.size, uri: parsed.args.uri, fee: parsed.args.feePaid, fileName: '', time: ts, chainId: state.chainId });
+      }catch(e){ }
+    }
+    // sort desc by time
+    out.sort(function(a,b){ return (b.time||0)-(a.time||0); });
+    return out;
+  }
+
+  function setHistory(items){ state.history = items || []; state.page = 1; renderHistory(); }
+  function addHistoryItem(item){ state.history.unshift(item); renderHistory(); }
+
   function renderHistory(){
     var list = el('history-list');
     list.innerHTML = '';
-    var arr = loadHistory();
-    if (!arr.length){ list.textContent = t('emptyHistory'); return; }
-    var base;
-    for (var i=arr.length-1; i>=0; i--){
+    var arr = state.history || [];
+    if (!arr.length){ list.textContent = t('emptyHistory'); updatePager(0,0); return; }
+
+    var total = arr.length;
+    var pages = Math.max(1, Math.ceil(total / state.perPage));
+    if (state.page > pages) state.page = pages;
+    var start = (state.page - 1) * state.perPage;
+    var end = Math.min(total, start + state.perPage);
+    for (var i=start;i<end;i++){
       var r = arr[i];
-      base = explorerBase(r.chainId||state.chainId||97);
+      var base = explorerBase(r.chainId||state.chainId||97);
       var feeVld = fmt18(r.fee||0);
       var when = r.time ? new Date(r.time).toLocaleString() : '';
       var html = '<div class="hist-item">'
-        + '<div class="hist-top">'
+        + '<div class="hist-top">'<
         +   '<div><strong>' + (r.fileName||'') + '</strong></div>'
         +   '<div class="pill">' + when + '</div>'
         + '</div>'
-        + '<div class="muted" style="margin-top:6px;">' + shortHash(r.hash) + ' • ' + formatBytes(r.size) + ' • ' + feeVld + ' VLD</div>'
-        + '<div style="margin-top:6px;">'
-        +   (r.uri ? ('<span class="pill">URI</span> <a href="' + r.uri + '" target="_blank" rel="noopener">' + r.uri + '</a>') : '')
-        + '</div>'
+        + '<div class="muted" style="margin-top:6px;">' + shortHash(r.hash) + ' • ' + (r.size||0) + ' B • ' + feeVld + ' VLD</div>'
+        + (r.uri ? ('<div style="margin-top:6px;"><span class="pill">URI</span> <a href="' + r.uri + '" target="_blank" rel="noopener">' + r.uri + '</a></div>') : '')
         + '<div style="margin-top:6px;">TX: <a class="mono" href="' + base + '/tx/' + r.tx + '" target="_blank" rel="noopener">' + shortHash(r.tx) + '</a></div>'
         + '</div>';
       var div = document.createElement('div');
       div.innerHTML = html; list.appendChild(div.firstChild);
     }
+    updatePager(state.page, pages);
+  }
+
+  function updatePager(cur, total){
+    el('page-cur').textContent = String(cur||0);
+    el('page-total').textContent = String(total||0);
+    el('btn-prev').disabled = !(cur>1);
+    el('btn-next').disabled = !(cur<total);
   }
 
   // ==== Connect/Disconnect ====
-  function ensureMM(){ if (!window.ethereum){ alert(t('noMM')); return false; } return true; }
+  function ensureMM(){ if (!window.ethereum){ alert((I18N[lang]||I18N.en).noMM); return false; } return true; }
   async function connect(){
     if (!ensureMM()) return;
     await window.ethereum.request({ method: 'eth_requestAccounts' });
@@ -239,61 +307,29 @@
     var net = await state.provider.getNetwork();
     state.chainId = Number(net.chainId);
     updateButtons();
-    if (state.chainId !== CFG.chainId){ showNetWarning(true); } else { showNetWarning(false); await initContracts(); }
+    if (state.chainId !== CFG.chainId){ showNetWarning(true); } else { showNetWarning(false); await initContracts(); var items = await fetchOnChainHistory(state.account); setHistory(items); }
   }
-  async function disconnect(){ state = Object.assign(state, { provider:null, signer:null, account:null, fc:null, vld:null, feeQuote: ethers.constants.Zero, chainId:null }); updateButtons(); showNetWarning(false); }
+  async function disconnect(){ state.provider=null; state.signer=null; state.account=null; state.fc=null; state.vld=null; state.feeQuote=ethers.constants.Zero; state.chainId=null; updateButtons(); showNetWarning(false); setHistory([]); }
 
-  async function initContracts(){ state.fc = new ethers.Contract(CFG.fileCert, FILE_CERTIFIER_ABI, state.signer); state.vld = new ethers.Contract(CFG.vld, ERC20_ABI, state.signer); try { state.decimals = await state.vld.decimals(); } catch(e){} }
+  async function initContracts(){ state.fc = new ethers.Contract(CFG.fileCert, FILE_CERTIFIER_ABI, state.signer); state.vld = new ethers.Contract(CFG.vld, ERC20_ABI, state.signer); try{ state.decimals = await state.vld.decimals(); }catch(e){} }
 
-  // ==== Helpers ====
+  // ==== File/hash/fee/approve/certify ====
   function toBytes(buffer){ return new Uint8Array(buffer); }
   async function hashFile(file){ var buf = await file.arrayBuffer(); var hex = ethers.utils.hexlify(toBytes(buf)); return ethers.utils.keccak256(hex); }
   async function hasAllowance(required){ var allowance = await state.vld.allowance(state.account, CFG.fileCert); return ethers.BigNumber.from(allowance).gte(required); }
 
-  // ==== UI events ====
   el('btn-connect').addEventListener('click', connect);
   el('btn-disconnect').addEventListener('click', disconnect);
   el('btn-lang-en').addEventListener('click', function(){ lang='en'; applyI18n(); renderHistory(); });
   el('btn-lang-it').addEventListener('click', function(){ lang='it'; applyI18n(); renderHistory(); });
-  el('btn-clear-history').addEventListener('click', function(){ localStorage.removeItem('validora_history'); renderHistory(); });
+  el('btn-refresh-history').addEventListener('click', async function(){ if (state.account && state.chainId===CFG.chainId){ var items = await fetchOnChainHistory(state.account); setHistory(items); } });
+  el('btn-prev').addEventListener('click', function(){ if (state.page>1){ state.page -= 1; renderHistory(); } });
+  el('btn-next').addEventListener('click', function(){ var total = Math.max(1, Math.ceil((state.history||[]).length / state.perPage)); if (state.page<total){ state.page += 1; renderHistory(); } });
 
   el('file-input').addEventListener('change', async function(e){ var f = e.target.files[0]; if (!f) return; el('size-out').value = String(f.size); el('hash-out').value = '...'; try { var h = await hashFile(f); el('hash-out').value = h; } catch(err){ el('hash-out').value=''; } });
-
-  el('btn-quote').addEventListener('click', async function(){ if (!state.fc || !state.account){ alert(t('needConnect')); return; } var size = parseInt(el('size-out').value||'0',10); if (!size){ alert(t('needFile')); return; } var fee = await state.fc.quoteItem(size); state.feeQuote = fee; el('fee-out').value = fmt18(fee); var ok = await hasAllowance(fee); el('btn-approve').disabled = ok; el('btn-certify').disabled = !ok; });
-
-  el('btn-approve').addEventListener('click', async function(){ if (!state.vld){ alert(t('needConnect')); return; } var amount = state.feeQuote; if (!amount || amount.isZero()){ alert('Quote first'); return; } var tx = await state.vld.approve(CFG.fileCert, amount); await tx.wait(); el('btn-approve').disabled = true; el('btn-certify').disabled = false; });
-
-  el('btn-certify').addEventListener('click', async function(){
-    var f = el('file-input').files[0]; if (!f){ alert(t('needFile')); return; }
-    var hash = el('hash-out').value; if (!hash){ alert('Missing hash'); return; }
-    var size = f.size; var uri = (el('uri-input').value||'').trim();
-    var tx = await state.fc.certify(hash, size, uri);
-    var rc = await tx.wait();
-
-    // parse event for feePaid & canonical values
-    var iface = new ethers.utils.Interface(FILE_CERTIFIER_ABI);
-    var topic = iface.getEventTopic('FileCertified');
-    var feePaid = state.feeQuote; var fileHash = hash; var sizeOn = size; var uriOn = uri;
-    for (var i=0;i<rc.logs.length;i++){
-      var l = rc.logs[i];
-      if (l.address.toLowerCase() === CFG.fileCert.toLowerCase() && l.topics && l.topics[0] === topic){
-        try{
-          var parsed = iface.parseLog(l);
-          feePaid = parsed.args.feePaid;
-          fileHash = parsed.args.fileHash;
-          sizeOn = parsed.args.size.toNumber ? parsed.args.size.toNumber() : parsed.args.size;
-          uriOn = parsed.args.uri;
-        }catch(e){}
-        break;
-      }
-    }
-    var blk = await state.provider.getBlock(rc.blockNumber);
-    var when = blk ? (blk.timestamp*1000) : Date.now();
-    addHistory({ tx: tx.hash, hash: fileHash, size: sizeOn, uri: uriOn, fee: feePaid, fileName: f.name||'', time: when, chainId: state.chainId });
-
-    // reset approve/certify buttons
-    el('btn-approve').disabled = true; el('btn-certify').disabled = true;
-  });
+  el('btn-quote').addEventListener('click', async function(){ if (!state.fc || !state.account){ alert((I18N[lang]||I18N.en).needConnect); return; } var size = parseInt(el('size-out').value||'0',10); if (!size){ alert((I18N[lang]||I18N.en).needFile); return; } var fee = await state.fc.quoteItem(size); state.feeQuote = fee; el('fee-out').value = fmt18(fee); var ok = await hasAllowance(fee); el('btn-approve').disabled = ok; el('btn-certify').disabled = !ok; });
+  el('btn-approve').addEventListener('click', async function(){ if (!state.vld){ alert((I18N[lang]||I18N.en).needConnect); return; } var amount = state.feeQuote; if (!amount || amount.isZero()){ alert('Quote first'); return; } var tx = await state.vld.approve(CFG.fileCert, amount); await tx.wait(); el('btn-approve').disabled = true; el('btn-certify').disabled = false; });
+  el('btn-certify').addEventListener('click', async function(){ var f = el('file-input').files[0]; if (!f){ alert((I18N[lang]||I18N.en).needFile); return; } var hash = el('hash-out').value; if (!hash){ alert('Missing hash'); return; } var size = f.size; var uri = (el('uri-input').value||'').trim(); var tx = await state.fc.certify(hash, size, uri); var rc = await tx.wait(); var iface = new ethers.utils.Interface(FILE_CERTIFIER_ABI); var topic = iface.getEventTopic('FileCertified'); var feePaid = state.feeQuote; var fileHash = hash; var sizeOn = size; var uriOn = uri; for (var i=0;i<rc.logs.length;i++){ var l = rc.logs[i]; if (l.address.toLowerCase()===CFG.fileCert.toLowerCase() && l.topics && l.topics[0]===topic){ try{ var parsed = iface.parseLog(l); feePaid = parsed.args.feePaid; fileHash = parsed.args.fileHash; sizeOn = parsed.args.size.toNumber?parsed.args.size.toNumber():parsed.args.size; uriOn = parsed.args.uri; }catch(e){} break; } } var blk = await state.provider.getBlock(rc.blockNumber); var when = blk ? (blk.timestamp*1000) : Date.now(); addHistoryItem({ tx: tx.hash, hash: fileHash, size: sizeOn, uri: uriOn, fee: feePaid, fileName: f.name||'', time: when, chainId: state.chainId }); el('btn-approve').disabled = true; el('btn-certify').disabled = true; });
 
   // init
   applyI18n();
