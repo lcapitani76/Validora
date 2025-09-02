@@ -160,14 +160,15 @@
   }
 
   // ==== Minimal ABIs ====
-  var FILE_CERTIFIER_ABI = [
-    "function quoteItem(uint64 size) view returns (uint256)",
-    "function certify(bytes32 fileHash, uint64 size, string uri)",
-    "function baseFee() view returns (uint256)",
-    "function unitFee() view returns (uint256)",
-    "function chunkSize() view returns (uint256)",
-    "function batchDiscountBps() view returns (uint16)"
-  ];
+var FILE_CERTIFIER_ABI = [
+  "function quoteItem(uint64 size) view returns (uint256)",
+  "function certify(bytes32 fileHash, uint64 size, string uri)",
+  "function baseFee() view returns (uint256)",
+  "function unitFee() view returns (uint256)",
+  "function chunkSize() view returns (uint256)",
+  "function batchDiscountBps() view returns (uint16)",
+  "event FileCertified(bytes32 indexed fileHash, address indexed submitter, string uri, uint64 size, uint256 feePaid)"
+];
   var ERC20_ABI = [
     "function decimals() view returns (uint8)",
     "function allowance(address owner, address spender) view returns (uint256)",
@@ -177,6 +178,24 @@
   // ==== UI & state ====
   function el(id){ return document.getElementById(id); }
   var logEl = el('log');
+  function showCertInfo(info)
+  {
+    var html =
+    "✅ Certification completed\n" +
+    "------------------------\n" +
+    "Tx:     " + info.tx + "\n" +
+    "Block:  " + info.block + "\n" +
+    "Hash:   " + info.fileHash + "\n" +
+    "Size:   " + info.size + " bytes\n" +
+    (info.uri ? ("URI:    " + info.uri + "\n") : "") +
+    (info.feeVld ? ("Fee:    " + info.feeVld + " VLD\n") : "");
+  logEl.textContent = html;
+  logEl.scrollTop = logEl.scrollHeight;
+ }
+
+
+
+  
   function log(msg){ logEl.textContent += msg + " "; logEl.scrollTop = logEl.scrollHeight; }
   function fmt18(bn){ try { return ethersRef.utils.formatUnits(bn||0, 18); } catch(e){ return String(bn); } }
 
@@ -218,7 +237,6 @@
     state.account = await state.signer.getAddress();
     var net = await state.provider.getNetwork();
     state.chainId = Number(net.chainId);
-    log('Connected: ' + state.account + ' | chainId ' + state.chainId);
     updateButtons(); updateWalletInfo();
 
     if (state.chainId !== CFG.chainId){
@@ -242,7 +260,6 @@
     state.provider=null; state.signer=null; state.account=null; state.fc=null; state.vld=null; state.feeQuote=ethersRef.constants.Zero; state.chainId=null;
     updateButtons(); updateWalletInfo();
     showNetWarning(false);
-    log('Disconnected');
   }
 
   async function initContracts(){
@@ -275,7 +292,7 @@
     if (!f) return;
     el('size-out').value = String(f.size);
     el('hash-out').value = '...';
-    try { var h = await hashFile(f); el('hash-out').value = h; log('Hash: ' + h); } catch(err){ el('hash-out').value=''; log('Hash error: ' + (err.message||err)); }
+    try { var h = await hashFile(f); el('hash-out').value = h; } catch(err){ el('hash-out').value=''; }
   });
 
   el('btn-quote').addEventListener('click', async function(){
@@ -288,14 +305,13 @@
     var ok = await hasAllowance(fee);
     el('btn-approve').disabled = ok;
     el('btn-certify').disabled = !ok;
-    log('Estimated fee: ' + fmt18(fee) + ' VLD');
+    
   });
 
   el('btn-approve').addEventListener('click', async function(){
     if (!state.vld) { alert(t('needConnect')); return; }
     var amount = state.feeQuote; if (!amount || amount.isZero()) { alert('Quote first'); return; }
     var tx = await state.vld.approve(CFG.fileCert, amount);
-    log('approve tx: ' + tx.hash);
     await tx.wait();
     log('approve confirmed');
     el('btn-approve').disabled = true; el('btn-certify').disabled = false;
