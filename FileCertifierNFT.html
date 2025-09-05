@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"></script>
   <style>
-    :root{--bg:#0b1120;--card:#111827;--muted:#94a3b8;--accent:#22d3ee;--ok:#22c55e;--warn:#f59e0b;--err:#ef4444;}
+    :root{--bg:#0b1120;--card:#111827;--muted:#94a3b8;--accent:#22d3ee;--ok:#22c55e;--warn:#f59e0b;--err:#ef4444}
     *{box-sizing:border-box}
     body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#0b1120,#0f172a);color:#e2e8f0}
     .wrap{max-width:980px;margin:24px auto;padding:16px}
@@ -26,88 +26,182 @@
     button.warn{background:var(--warn);border-color:var(--warn)}
     button:disabled{opacity:.6;cursor:not-allowed}
     .split{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}
-    .log{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;height:220px;overflow:auto;background:#0a0f1e;border-radius:12px;border:1px solid #1f2a3a;padding:12px}
+    .log{font-family:ui-monospace, Menlo, Consolas, "Courier New", monospace;height:220px;overflow:auto;background:#0a0f1e;border-radius:12px;border:1px solid #1f2a3a;padding:12px}
     .muted{color:var(--muted)}
     .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#0b1220;border:1px solid #334155;color:#cbd5e1;font-size:12px}
     .hr{height:1px;background:#1f2937;margin:16px 0}
     .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .topbar{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:8px}
     @media (max-width:900px){.split{grid-template-columns:1fr}.grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Validora • NFT File Certification <span class="pill">BSC Testnet</span></h1>
+    <div class="topbar">
+      <h1 data-i18n="title">Validora • NFT File Certification <span class="pill">BSC Testnet</span></h1>
+      <div style="min-width:180px">
+        <label for="lang" class="muted" data-i18n="language">Language</label>
+        <select id="lang">
+          <option value="en">English</option>
+          <option value="it">Italiano</option>
+        </select>
+      </div>
+    </div>
 
     <div class="card split">
       <div>
+        <!-- Hidden, hard-coded addresses (non editable) -->
+        <input id="contract" type="hidden" value="0xf5539442a2E1585365d8Fdb905A745b56D7aD020"/>
+        <input id="vld" type="hidden" value="0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b"/>
+
         <div class="grid">
           <div>
-            <label>Contract (FileCertifierNFT)</label>
-            <input id="contract" value="0xf5539442a2E1585365d8Fdb905A745b56D7aD020"/>
-          </div>
-          <div>
-            <label>VLD Token (ERC20)</label>
-            <input id="vld" placeholder="0x..."/>
-          </div>
-        </div>
-        <div class="grid" style="margin-top:12px">
-          <div>
-            <label>Modo</label>
+            <label data-i18n="mode">Mode</label>
             <select id="mode">
-              <option value="single">Singolo file</option>
-              <option value="batch">Batch (multi file)</option>
+              <option value="single" data-i18n="single">Single file</option>
+              <option value="batch" data-i18n="batch">Batch (multi file)</option>
             </select>
           </div>
           <div>
             <label>&nbsp;</label>
-            <button id="switch" class="secondary">Connetti & Switch a BSC Testnet</button>
+            <button id="switch" class="secondary" data-i18n="connect">Connect & switch to BSC Testnet</button>
           </div>
         </div>
 
         <div class="hr"></div>
 
         <div class="grid">
-          <div>
-            <label>Seleziona file</label>
+          <div id="singleWrap">
+            <label data-i18n="selectFile">Select file</label>
             <input id="file" type="file"/>
           </div>
           <div id="multiWrap" style="display:none">
-            <label>Seleziona più file</label>
+            <label data-i18n="selectFiles">Select multiple files</label>
             <input id="files" type="file" multiple/>
           </div>
         </div>
 
         <div class="grid" style="margin-top:12px">
           <div>
-            <label>Anteprima metadata (inline)</label>
-            <button id="preview" class="secondary">Genera anteprima</button>
+            <label data-i18n="previewLabel">Metadata preview (inline)</label>
+            <button id="preview" class="secondary" data-i18n="preview">Generate preview</button>
           </div>
           <div>
-            <label>Fee stimata</label>
+            <label data-i18n="feeLabel">Estimated fee</label>
             <input id="fee" readonly placeholder="0 VLD"/>
           </div>
         </div>
 
         <div class="grid" style="margin-top:12px">
-          <button id="approve" class="warn">1) Approva VLD</button>
-          <button id="mint" class="ok">2) Certify / Mint</button>
+          <button id="approve" class="warn" data-i18n="approve">1) Approve VLD</button>
+          <button id="mint" class="ok" data-i18n="mint">2) Certify / Mint</button>
         </div>
       </div>
 
       <div>
-        <label>Log</label>
+        <label data-i18n="log">Log</label>
         <div id="log" class="log"></div>
-        <div style="margin-top:8px" class="muted">Suggerimento: in modalità <b>Batch</b> ogni file genera un metadata JSON con <i>image</i> SVG inline deterministico (identicon) e viene inviato a <code>certifyBatch(hashes, sizes, uris)</code>.</div>
+        <div style="margin-top:8px" class="muted" data-i18n="hint">Tip: in <b>Batch</b> mode each file gets a deterministic SVG identicon and its own JSON metadata, sent to <code>certifyBatch(hashes, sizes, uris)</code>.</div>
       </div>
     </div>
 
-    <p class="muted" style="margin-top:12px">Questo tool non carica nulla su server: tutto avviene localmente nel browser e on‑chain.</p>
+    <p class="muted" style="margin-top:12px" data-i18n="privacy">This tool uploads nothing to servers: everything runs locally in your browser and on‑chain.</p>
   </div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const log = (m, cls="") => { const d=document.createElement('div'); d.textContent = m; if(cls) d.style.color=cls; $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight; };
+const log = (m, cls="") => { const d=document.createElement('div'); d.innerHTML = m; if(cls) d.style.color=cls; $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight; };
 
+// ===== Addresses (hard-coded, hidden) =====
+const CONTRACT_ADDR = $('contract').value; // 0xf5539...D020 (FileCertifierNFT)
+const VLD_ADDR      = $('vld').value;      // 0xD6B7...f89b (VLD token)
+
+// ===== I18N =====
+const I18N = {
+  en: {
+    title: "Validora • NFT File Certification <span class=\"pill\">BSC Testnet</span>",
+    language: "Language",
+    mode: "Mode",
+    single: "Single file",
+    batch: "Batch (multi file)",
+    connect: "Connect & switch to BSC Testnet",
+    selectFile: "Select file",
+    selectFiles: "Select multiple files",
+    previewLabel: "Metadata preview (inline)",
+    preview: "Generate preview",
+    feeLabel: "Estimated fee",
+    approve: "1) Approve VLD",
+    mint: "2) Certify / Mint",
+    log: "Log",
+    hint: "Tip: in <b>Batch</b> mode each file gets a deterministic SVG identicon and its own JSON metadata, sent to <code>certifyBatch(hashes, sizes, uris)</code>.",
+    privacy: "This tool uploads nothing to servers: everything runs locally in your browser and on‑chain.",
+    needWallet: "A compatible wallet is required (e.g. MetaMask).",
+    connectFirst: "Connect your wallet and switch network.",
+    selectAFile: "Please choose a file.",
+    selectFilesFirst: "Choose at least 2 files.",
+    feeEstimated: (v) => `Estimated fee: ${v} VLD`,
+    walletConnected: (a) => `Wallet connected: ${a}`,
+    chainSwitchError: (m) => `Network switch error: ${m}`,
+    approveProgress: "Approving VLD…",
+    approveOk: (h) => `✔ Approve confirmed: ${h}`,
+    previewHash: (h) => `Hash: ${h}`,
+    previewUri: (u) => `URI preview (begin): ${u}`,
+    mintSingle: "Minting single…",
+    mintBatch: (n) => `Minting batch of ${n}…`,
+    mintOk: (h) => `✔ Mint OK: ${h}`,
+  },
+  it: {
+    title: "Validora • Certificazione File via NFT <span class=\"pill\">BSC Testnet</span>",
+    language: "Lingua",
+    mode: "Modalità",
+    single: "Singolo file",
+    batch: "Batch (multi file)",
+    connect: "Connetti & passa a BSC Testnet",
+    selectFile: "Seleziona file",
+    selectFiles: "Seleziona più file",
+    previewLabel: "Anteprima metadata (inline)",
+    preview: "Genera anteprima",
+    feeLabel: "Fee stimata",
+    approve: "1) Approva VLD",
+    mint: "2) Certify / Mint",
+    log: "Log",
+    hint: "Suggerimento: in modalità <b>Batch</b> ogni file genera un identicon SVG deterministico e un proprio JSON, inviato a <code>certifyBatch(hashes, sizes, uris)</code>.",
+    privacy: "Questo tool non carica nulla su server: tutto avviene localmente nel browser e on‑chain.",
+    needWallet: "Serve un wallet compatibile (es. MetaMask).",
+    connectFirst: "Connetti il wallet e cambia rete.",
+    selectAFile: "Seleziona un file.",
+    selectFilesFirst: "Seleziona almeno due file.",
+    feeEstimated: (v) => `Fee stimata: ${v} VLD`,
+    walletConnected: (a) => `Wallet connesso: ${a}`,
+    chainSwitchError: (m) => `Errore cambio rete: ${m}`,
+    approveProgress: "Approvazione VLD in corso…",
+    approveOk: (h) => `✔ Approve confermata: ${h}`,
+    previewHash: (h) => `Hash: ${h}`,
+    previewUri: (u) => `Anteprima URI (inizio): ${u}`,
+    mintSingle: "Mint singolo…",
+    mintBatch: (n) => `Mint batch di ${n}…`,
+    mintOk: (h) => `✔ Mint OK: ${h}`,
+  }
+};
+
+function applyLang(lang){
+  document.documentElement.lang = lang === 'it' ? 'it' : 'en';
+  const dict = I18N[lang];
+  // Static labels
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key = el.getAttribute('data-i18n');
+    const val = dict[key];
+    if(typeof val === 'string') el.innerHTML = val;
+  });
+  // Options text
+  $('mode').querySelector('option[value="single"]').textContent = dict.single;
+  $('mode').querySelector('option[value="batch"]').textContent  = dict.batch;
+}
+
+$('lang').addEventListener('change', e => applyLang(e.target.value));
+applyLang('en'); // default English
+
+// ===== Chain / wallet =====
 const CHAIN_ID = '0x61'; // BSC Testnet
 const CERT_ABI = [
   'function quoteItem(uint64 size) view returns (uint256)',
@@ -128,13 +222,12 @@ let provider, signer, account;
 $('mode').addEventListener('change', (e)=>{
   const batch = e.target.value === 'batch';
   $('multiWrap').style.display = batch ? 'block' : 'none';
-  $('file').style.display = batch ? 'none' : 'block';
+  $('singleWrap').style.display = batch ? 'none' : 'block';
 });
 
 $('switch').addEventListener('click', async () => {
-  if (!window.ethereum) return alert('Serve un wallet (MetaMask compatibile)');
+  if (!window.ethereum) return alert(I18N[document.documentElement.lang].needWallet);
   try {
-    // switch o aggiungi la chain
     await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID }] });
   } catch (err) {
     if (err.code === 4902) {
@@ -142,12 +235,12 @@ $('switch').addEventListener('click', async () => {
         method: 'wallet_addEthereumChain',
         params: [{ chainId: CHAIN_ID, chainName: 'BSC Testnet', nativeCurrency: { name: 'tBNB', symbol: 'tBNB', decimals: 18 }, rpcUrls: ['https://data-seed-prebsc-1-s1.binance.org:8545/'], blockExplorerUrls: ['https://testnet.bscscan.com'] }]
       });
-    } else { log('Errore switch chain: ' + err.message, '#ef4444'); return; }
+    } else { log(I18N[document.documentElement.lang].chainSwitchError(err.message), '#ef4444'); return; }
   }
   provider = new ethers.BrowserProvider(window.ethereum);
   signer   = await provider.getSigner();
   account  = await signer.getAddress();
-  log('Wallet connesso: ' + account);
+  log(I18N[document.documentElement.lang].walletConnected(account));
 });
 
 function identiconSVG(hash, size=1000){
@@ -187,29 +280,27 @@ function buildMetadata(hash, size){
 }
 
 $('preview').addEventListener('click', async ()=>{
+  const L = I18N[document.documentElement.lang];
   try{
     const mode = $('mode').value;
     if(mode==='single'){
-      const f = $('file').files[0]; if(!f) return alert('Seleziona un file');
+      const f = $('file').files[0]; if(!f) return alert(L.selectAFile);
       const bytes = new Uint8Array(await f.arrayBuffer());
       const hash = ethers.keccak256(bytes);
       const size = BigInt(bytes.length);
       const meta = buildMetadata(hash, size);
       const uri  = 'data:application/json;base64,' + btoa(JSON.stringify(meta));
-      log('Hash: ' + hash);
-      log('URI preview (inizio): ' + uri.slice(0,80) + '…');
-      // stima fee
-      const addrC = $('contract').value.trim(); const addrV = $('vld').value.trim();
-      if(!addrC){ return log('Inserisci l\'indirizzo del contratto', '#f59e0b'); }
-      if(!provider){ return log('Connetti il wallet e switcha chain', '#f59e0b'); }
-      const cert = new ethers.Contract(addrC, CERT_ABI, provider);
+      log(L.previewHash(hash));
+      log(L.previewUri(uri.slice(0,80) + '…'));
+      if(!provider){ return log(L.connectFirst, '#f59e0b'); }
+      const cert = new ethers.Contract(CONTRACT_ADDR, CERT_ABI, provider);
       const fee  = await cert.quoteItem(size);
       const v = ethers.formatUnits(fee, 18);
       $('fee').value = v + ' VLD';
-      log('Fee stimata: ' + v + ' VLD');
+      log(L.feeEstimated(v));
     } else {
-      const list = $('files').files; if(!list.length) return alert('Seleziona almeno 2 file');
-      if(!provider){ return log('Connetti il wallet e switcha chain', '#f59e0b'); }
+      const list = $('files').files; if(!list.length) return alert(L.selectFilesFirst);
+      if(!provider){ return log(L.connectFirst, '#f59e0b'); }
       const sizes=[], hashes=[], uris=[];
       for(const f of list){
         const bytes = new Uint8Array(await f.arrayBuffer());
@@ -219,69 +310,67 @@ $('preview').addEventListener('click', async ()=>{
         const meta = buildMetadata(hash, size);
         uris.push('data:application/json;base64,' + btoa(JSON.stringify(meta)));
       }
-      const cert = new ethers.Contract($('contract').value.trim(), CERT_ABI, provider);
+      const cert = new ethers.Contract(CONTRACT_ADDR, CERT_ABI, provider);
       const res  = await cert.quoteBatch(sizes);
       const total = res[0];
       $('fee').value = ethers.formatUnits(total, 18) + ' VLD';
-      log('Batch: ' + hashes.length + ' file, fee totale stimata: ' + ethers.formatUnits(total,18) + ' VLD');
-      // cache arrays su window per il mint
+      log(`Batch: ${hashes.length} files, ` + L.feeEstimated(ethers.formatUnits(total,18)));
       window._batch = { hashes, sizes, uris };
     }
   }catch(err){ log('Preview error: ' + (err?.message||err), '#ef4444'); }
 });
 
 $('approve').addEventListener('click', async ()=>{
+  const L = I18N[document.documentElement.lang];
   try{
-    if(!provider) return log('Connetti il wallet', '#f59e0b');
-    const vldAddr = $('vld').value.trim();
-    const certAddr = $('contract').value.trim();
-    if(!vldAddr || !certAddr) return log('Indirizzi mancanti', '#f59e0b');
-    const cert = new ethers.Contract(certAddr, CERT_ABI, provider);
-    const vld  = new ethers.Contract(vldAddr, ERC20_ABI, signer);
+    if(!provider) return log(L.connectFirst, '#f59e0b');
+    const cert = new ethers.Contract(CONTRACT_ADDR, CERT_ABI, provider);
+    const vld  = new ethers.Contract(VLD_ADDR, ERC20_ABI, signer);
 
     let amount;
     if($('mode').value==='single'){
-      const f=$('file').files[0]; if(!f) return alert('Seleziona un file');
+      const f=$('file').files[0]; if(!f) return alert(L.selectAFile);
       const bytes = new Uint8Array(await f.arrayBuffer());
       const size = BigInt(bytes.length);
       const fee = await cert.quoteItem(size);
       amount = fee;
     } else {
-      if(!window._batch) return log('Fai prima "Genera anteprima" per il batch', '#f59e0b');
+      if(!window._batch) return log('Run "Generate preview" first', '#f59e0b');
       const res = await cert.quoteBatch(window._batch.sizes);
       amount = res[0];
     }
-    log('Approvazione VLD in corso…');
-    const tx = await vld.approve(certAddr, amount);
+    log(L.approveProgress);
+    const tx = await vld.approve(CONTRACT_ADDR, amount);
     await tx.wait();
-    log('✔ Approve confermata: ' + tx.hash, '#22c55e');
+    log(L.approveOk(tx.hash), '#22c55e');
   }catch(err){ log('Approve error: ' + (err?.shortMessage||err?.message||err), '#ef4444'); }
 });
 
 $('mint').addEventListener('click', async ()=>{
+  const L = I18N[document.documentElement.lang];
   try{
-    if(!provider) return log('Connetti il wallet', '#f59e0b');
-    const cert = new ethers.Contract($('contract').value.trim(), CERT_ABI, signer);
+    if(!provider) return log(L.connectFirst, '#f59e0b');
+    const cert = new ethers.Contract(CONTRACT_ADDR, CERT_ABI, signer);
 
     if($('mode').value==='single'){
-      const f=$('file').files[0]; if(!f) return alert('Seleziona un file');
+      const f=$('file').files[0]; if(!f) return alert(L.selectAFile);
       const bytes = new Uint8Array(await f.arrayBuffer());
       const hash = ethers.keccak256(bytes);
       const size = BigInt(bytes.length);
       const meta = buildMetadata(hash, size);
       const uri  = 'data:application/json;base64,' + btoa(JSON.stringify(meta));
 
-      log('Mint singolo…');
+      log(L.mintSingle);
       const tx = await cert.certify(hash, size, uri);
       await tx.wait();
-      log('✔ Mint OK: ' + tx.hash, '#22c55e');
+      log(L.mintOk(tx.hash), '#22c55e');
     } else {
-      if(!window._batch){ return log('Fai prima "Genera anteprima" per il batch', '#f59e0b'); }
+      if(!window._batch){ return log('Run "Generate preview" first', '#f59e0b'); }
       const {hashes, sizes, uris} = window._batch;
-      log('Mint batch di ' + hashes.length + '…');
+      log(L.mintBatch(hashes.length));
       const tx = await cert.certifyBatch(hashes, sizes, uris);
       await tx.wait();
-      log('✔ Batch mint OK: ' + tx.hash, '#22c55e');
+      log(L.mintOk(tx.hash), '#22c55e');
     }
   }catch(err){ log('Mint error: ' + (err?.shortMessage||err?.message||err), '#ef4444'); }
 });
