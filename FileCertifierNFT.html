@@ -385,6 +385,40 @@ $('mint').addEventListener('click', async ()=>{
     }
   }catch(err){ log('Mint error: ' + (err?.shortMessage||err?.message||err), '#ef4444'); }
 });
+
+// === Build compact metadata URI (under ~2k chars) ===
+function buildMetaURIWithFallback(hash, size){
+  try{
+    const meta = {
+      name: `Validora Certification — ${hash.slice(0,10)}…`,
+      description: `On-chain proof of authenticity.
+Hash: ${hash}
+Algorithm: keccak256`,
+      image: identiconSVG(hash, 240),
+      attributes: [
+        { trait_type: 'Hash (keccak256)', value: hash },
+        { trait_type: 'File Size (bytes)', display_type: 'number', value: Number(size) }
+      ]
+    };
+    let uri  = 'data:application/json;base64,' + b64utf8(JSON.stringify(meta));
+    if (uri.length > 2000) {
+      const compact = {
+        name: `Validora — ${hash.slice(0,10)}…`,
+        image: identiconSVG(hash, 200),
+        attributes: [
+          { trait_type: 'Hash (keccak256)', value: hash },
+          { trait_type: 'File Size (bytes)', display_type: 'number', value: Number(size) }
+        ]
+      };
+      uri = 'data:application/json;base64,' + b64utf8(JSON.stringify(compact));
+    }
+    return uri;
+  }catch(e){
+    console.error('buildMetaURIWithFallback error', e);
+    const minimal = { name: `Validora — ${hash.slice(0,10)}…`, image: identiconSVG(hash, 160) };
+    return 'data:application/json;base64,' + b64utf8(JSON.stringify(minimal));
+  }
+}
 </script>
 </body>
 </html>
