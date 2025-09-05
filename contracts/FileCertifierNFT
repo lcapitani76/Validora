@@ -1,0 +1,408 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+// ── OpenZeppelin ───────────────────────────────────────────────────────────────
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol"; // OZ <5 uses security/Pausable
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import {ERC2981} from "@openzeppelin/contracts/token/common/ERC2981.sol";
+
+/// @title Validora File Certification + NFT (ERC-721) with fee in VLD — Policy A (Owner-centric)
+/// @notice Certifica l'hash (keccak256) di un file e, alla prima certificazione, minta un NFT trasferibile che rappresenta la certificazione.
+///         L'NFT può essere trasferito per cedere la titolarità/diritti associati alla certificazione (es. musica).
+/// @dev    V3-A: Owner-centric → revoke/updateURI consentite a owner/approved (non più al solo submitter);
+///         aggiunge freezeMetadata, riscuote le fee PRIMA del mint, memorizza _defaultRoyaltyBps,
+///         utility view per il front-end. Compatibile con OZ 4.9 (usa _ownerOf/_requireOwned).
+contract FileCertifierNFT is ERC721, ERC721Enumerable, ERC2981, ReentrancyGuard, Pausable {
+    using SafeERC20 for IERC20;
+
+    // --- Ownership minimal ---
+    address public owner;
+    modifier onlyOwner() { require(msg.sender == owner, "not owner"); _; }
+
+    // --- Token & treasury ---
+    IERC20  public immutable vld;     // VLD token (18 decimali attesi)
+    address public treasury;          // incasso fee + destinatario royalties (default)
+
+    // --- Fee params ---
+    // fee item = baseFee + ceil(size/chunkSize) * unitFee
+    // totale batch = somma fee item, poi sconto batch
+    uint256 public baseFee;           // es. 1000e18
+    uint256 public unitFee;           // es. 0.1e18 per chunk
+    uint256 public chunkSize;         // es. 1_048_576 (1 MiB)
+    uint16  public batchDiscountBps;  // es. 1000 = 10% (max 10000)
+
+    // --- Limiti ---
+    uint64 public maxFileSize;        // byte per file (es. 2 GiB)
+    uint32 public maxBatchItems;      // es. 100
+    uint32 public maxURILen;          // protezione bloat (es. 2048)
+
+    // --- Royalties default (ERC-2981) ---
+    uint96 private _defaultRoyaltyBps; // memorizza i bps di default per riallinearli al cambio treasury
+
+    struct Record {
+        address submitter; // wallet che ha effettuato la prima certificazione
+        uint64  timestamp; // block.timestamp della prima certificazione
+        bool    revoked;   // stato di revoca (brucia l'NFT)
+        string  uri;       // opzionale: metadata/tokenURI (es. ipfs://... o https://...)
+        uint64  size;      // dimensione dichiarata
+    }
+
+    // fileHash => Record
+    mapping(bytes32 => Record) private records;
+
+    // tokenId = uint256(fileHash). Non esistono token per fileHash non certificati.
+    // tokenId => fileHash (comodo per lookup inverso)
+    mapping(uint256 => bytes32) public hashOf;
+
+    // storage per tokenURI (evitiamo ERC721URIStorage per mantenere il controllo)
+    mapping(uint256 => string) private _tokenURIs;
+
+    // metadata freeze (one-way)
+    mapping(uint256 => bool) public metadataFrozen;
+
+    // --- Events ---
+    event FileCertified(bytes32 indexed fileHash, address indexed submitter, string uri, uint64 size, uint256 feePaid);
+    event FileRevoked(bytes32 indexed fileHash, address indexed by);
+    event MetadataUpdated(bytes32 indexed fileHash, string newUri);
+    event FeesUpdated(uint256 baseFee, uint256 unitFee, uint256 chunkSize, uint16 batchDiscountBps);
+    event LimitsUpdated(uint64 maxFileSize, uint32 maxBatchItems, uint32 maxURILen);
+    event TreasuryChanged(address newTreasury);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event BatchCertified(bytes32 indexed batchId, address indexed submitter, uint256 items, uint256 totalFee);
+    event MetadataFrozen(bytes32 indexed fileHash, uint256 tokenId);
+
+    constructor(
+        address _vld,
+        address _treasury,
+        uint96 royaltyBps // es. 500 = 5%; 0 per disattivare
+    ) ERC721("Validora Certification", "VLD-CERT") {
+        require(_vld != address(0) && _treasury != address(0), "zero addr");
+        owner    = msg.sender;
+        vld      = IERC20(_vld);
+        treasury = _treasury;
+
+        // DEFAULTS (allineati alla V2)
+        baseFee          = 1000 ether;
+        unitFee          = 0;
+        chunkSize        = 1_048_576;        // 1 MiB
+        batchDiscountBps = 0;
+
+        maxFileSize      = 2_147_483_648;    // 2 GiB
+        maxBatchItems    = 100;
+        maxURILen        = 2048;
+
+        // Royalties ERC-2981 (facoltative)
+        if (royaltyBps > 0) {
+            _defaultRoyaltyBps = royaltyBps;
+            _setDefaultRoyalty(_treasury, royaltyBps);
+        }
+    }
+
+    // =========================
+    // ====== FEE LOGICA  ======
+    // =========================
+
+    function quoteItem(uint64 size) public view returns (uint256) {
+        uint256 fee = baseFee;
+        if (unitFee > 0 && size > 0) {
+            uint256 units = (uint256(size) + (chunkSize - 1)) / chunkSize; // ceil
+            fee += units * unitFee;
+        }
+        return fee;
+    }
+
+    /// @notice Somma precisa delle quote item + eventuale sconto batch.
+    function quoteBatch(uint64[] calldata sizes) public view returns (uint256 total, uint256 preDiscount) {
+        uint256 n = sizes.length;
+        uint256 sum = 0;
+        for (uint256 i = 0; i < n; i++) {
+            sum += quoteItem(sizes[i]);
+        }
+        preDiscount = sum;
+        if (batchDiscountBps > 0 && n > 1) {
+            total = (sum * (10_000 - batchDiscountBps)) / 10_000;
+        } else {
+            total = sum;
+        }
+    }
+
+    function _collectFee(address payer, uint256 amount) internal {
+        if (amount == 0) return;
+        vld.safeTransferFrom(payer, treasury, amount);
+    }
+
+    // =========================
+    // ===== CORE FUNZIONI =====
+    // =========================
+
+    /// @notice Certifica un singolo fileHash. Se prima volta, minta un NFT (tokenId = uint256(fileHash)).
+    /// @dev    Policy A: le funzioni di gestione (revoke/updateURI) sono owner-centric.
+    function certify(bytes32 fileHash, uint64 size, string calldata uri)
+        external
+        nonReentrant
+        whenNotPaused
+    {
+        require(fileHash != bytes32(0), "invalid hash");
+        require(size > 0 && size <= maxFileSize, "size out of range");
+        require(bytes(uri).length <= maxURILen, "uri too long");
+
+        uint256 fee = quoteItem(size);
+        _collectFee(msg.sender, fee); // incassa PRIMA di mutare stato
+
+        uint256 tokenId = uint256(fileHash);
+        Record storage r = records[fileHash];
+
+        if (r.submitter == address(0)) {
+            // Prima certificazione -> crea record + mint NFT
+            r.submitter = msg.sender;
+            r.timestamp = uint64(block.timestamp);
+            r.revoked   = false;
+            r.uri       = uri;
+            r.size      = size;
+
+            require(_ownerOf(tokenId) == address(0), "already minted");
+            _safeMint(msg.sender, tokenId);
+            hashOf[tokenId] = fileHash;
+            _tokenURIs[tokenId] = uri;
+        } else {
+            // Certificazione esiste, consenti "riattivazione" SOLO al submitter se revocata
+            require(r.submitter == msg.sender, "not submitter");
+            require(r.revoked, "already certified");
+            r.revoked = false;
+            r.uri     = uri;
+            r.size    = size;
+
+            require(_ownerOf(tokenId) == address(0), "token alive");
+            _safeMint(msg.sender, tokenId);
+            hashOf[tokenId] = fileHash;
+            _tokenURIs[tokenId] = uri;
+        }
+
+        emit FileCertified(fileHash, msg.sender, uri, size, fee);
+    }
+
+    /// @notice Certifica in batch. Minta NFT per ogni hash non ancora attivo.
+    function certifyBatch(
+    bytes32[] calldata hashes,
+    uint64[] calldata sizes,
+    string[] calldata uris
+) external nonReentrant whenNotPaused {
+    uint256 n = hashes.length;
+    require(n > 0 && n == sizes.length && n == uris.length, "bad input");
+    require(n <= maxBatchItems, "too many items");
+
+    for (uint256 i = 0; i < n; i++) {
+        require(hashes[i] != bytes32(0), "invalid hash");
+        require(sizes[i] > 0 && sizes[i] <= maxFileSize, "size out of range");
+        require(bytes(uris[i]).length <= maxURILen, "uri too long");
+    }
+
+    (uint256 totalFee, ) = quoteBatch(sizes);
+    _collectFee(msg.sender, totalFee); // incassa PRIMA
+
+    for (uint256 i = 0; i < n; i++) {
+        bytes32 h = hashes[i];
+        uint256 tokenId = uint256(h);
+        Record storage r = records[h];
+
+        if (r.submitter == address(0)) {
+            r.submitter = msg.sender;
+            r.timestamp = uint64(block.timestamp);
+            r.revoked   = false;
+            r.uri       = uris[i];
+            r.size      = sizes[i];
+
+            require(_ownerOf(tokenId) == address(0), "already minted");
+            _safeMint(msg.sender, tokenId);
+            hashOf[tokenId] = h;
+            _tokenURIs[tokenId] = uris[i];
+        } else {
+            require(r.submitter == msg.sender, "not submitter");
+            require(r.revoked, "already certified");
+            r.revoked = false;
+            r.uri     = uris[i];
+            r.size    = sizes[i];
+
+            require(_ownerOf(tokenId) == address(0), "token alive");
+            _safeMint(msg.sender, tokenId);
+            hashOf[tokenId] = h;
+            _tokenURIs[tokenId] = uris[i];
+        }
+
+        emit FileCertified(h, msg.sender, uris[i], sizes[i], 0);
+    }
+
+    bytes32 batchId = keccak256(abi.encodePacked(msg.sender, block.number, n, totalFee));
+    emit BatchCertified(batchId, msg.sender, n, totalFee);
+}
+
+    //
+
+    // ===== Gestione metadata (Owner-centric) =====
+
+    /// @notice Aggiorna l'URI/metadata della certificazione. Policy A: owner o approved.
+    function updateURI(bytes32 fileHash, string calldata newUri) external whenNotPaused {
+        require(bytes(newUri).length <= maxURILen, "uri too long");
+        uint256 tokenId = _requireOwnerOrApproved(fileHash); // owner/approved
+        require(!metadataFrozen[tokenId], "metadata frozen");
+
+        Record storage r = records[fileHash];
+        require(r.submitter != address(0), "not found");
+
+        r.uri = newUri;
+        _tokenURIs[tokenId] = newUri;
+        emit MetadataUpdated(fileHash, newUri);
+    }
+
+    /// @notice Rende immutabile la metadata del token. One-way.
+    function freezeMetadata(bytes32 fileHash) external whenNotPaused {
+        uint256 tokenId = _requireOwnerOrApproved(fileHash);
+        metadataFrozen[tokenId] = true;
+        emit MetadataFrozen(fileHash, tokenId);
+    }
+
+    /// @notice Revoca una certificazione. Policy A: owner o approved. Brucia l'NFT.
+    function revoke(bytes32 fileHash) external whenNotPaused {
+        Record storage r = records[fileHash];
+        require(r.submitter != address(0), "not found");
+        require(!r.revoked, "already revoked");
+
+        uint256 tokenId = _requireOwnerOrApproved(fileHash); // owner/approved
+
+        r.revoked = true;
+        _burn(tokenId);
+        emit FileRevoked(fileHash, msg.sender);
+    }
+
+    // ===== Views =====
+
+    function getRecord(bytes32 fileHash)
+        external
+        view
+        returns (address submitter, uint64 timestamp, bool revoked, string memory uri, uint64 size)
+    {
+        Record storage r = records[fileHash];
+        return (r.submitter, r.timestamp, r.revoked, r.uri, r.size);
+    }
+
+    function exists(bytes32 fileHash) external view returns (bool) {
+        Record storage r = records[fileHash];
+        return r.submitter != address(0) && !r.revoked;
+    }
+
+    /// @notice tokenId derivato dal fileHash (uint256(fileHash))
+    function tokenIdOf(bytes32 fileHash) external pure returns (uint256) {
+        return uint256(fileHash);
+    }
+
+    /// @notice Restituisce il proprietario dell'NFT relativo all'hash.
+    function ownerOfHash(bytes32 fileHash) external view returns (address) {
+        address o = _ownerOf(uint256(fileHash));
+        require(o != address(0), "not minted");
+        return o;
+    }
+
+    /// @notice Esistenza del tokenId
+    function tokenExists(uint256 tokenId) external view returns (bool) {
+        return _ownerOf(tokenId) != address(0);
+    }
+
+    // ===== Admin =====
+    function setFees(uint256 _base, uint256 _unit, uint256 _chunk, uint16 _discountBps) external onlyOwner {
+        require(_chunk > 0, "chunk=0");
+        require(_discountBps <= 10_000, "bps>100%");
+        baseFee = _base;
+        unitFee = _unit;
+        chunkSize = _chunk;
+        batchDiscountBps = _discountBps;
+        emit FeesUpdated(_base, _unit, _chunk, _discountBps);
+    }
+
+    function setLimits(uint64 _maxFileSize, uint32 _maxBatchItems, uint32 _maxURILen) external onlyOwner {
+        require(_maxFileSize > 0, "maxFileSize=0");
+        require(_maxBatchItems > 0, "maxBatchItems=0");
+        require(_maxURILen > 0, "maxURILen=0");
+        maxFileSize   = _maxFileSize;
+        maxBatchItems = _maxBatchItems;
+        maxURILen     = _maxURILen;
+        emit LimitsUpdated(_maxFileSize, _maxBatchItems, _maxURILen);
+    }
+
+    function setTreasury(address t) external onlyOwner {
+        require(t != address(0), "zero");
+        treasury = t;
+        if (_defaultRoyaltyBps > 0) {
+            _setDefaultRoyalty(t, _defaultRoyaltyBps);
+        }
+        emit TreasuryChanged(t);
+    }
+
+    /// @notice Imposta le royalties di default (ERC-2981) su tutte le vendite secondarie supportate.
+    function setDefaultRoyalty(address receiver, uint96 feeNumerator) external onlyOwner {
+        require(receiver != address(0), "zero");
+        _defaultRoyaltyBps = feeNumerator;
+        _setDefaultRoyalty(receiver, feeNumerator);
+    }
+
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "zero");
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
+    }
+
+    // ===== Pause/Unpause =====
+    function pause() external onlyOwner { _pause(); }
+    function unpause() external onlyOwner { _unpause(); }
+
+    // ===== Rescue =====
+    function recoverERC20(address token, uint256 amount, address to) external onlyOwner {
+        require(to != address(0), "zero to");
+        IERC20(token).safeTransfer(to, amount);
+    }
+
+    // ===== Internals / helpers =====
+
+    function _requireOwnerOrApproved(bytes32 fileHash) internal view returns (uint256 tokenId) {
+        tokenId = uint256(fileHash);
+        address o = _ownerOf(tokenId);
+        require(o != address(0), "token not minted");
+//        require(_isApprovedOrOwner(msg.sender, tokenId), "not owner nor approved");
+        require(_isAuthorized(o, msg.sender, tokenId), "not owner nor approved");
+    }
+
+    // ===== ERC721 overrides =====
+
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        _requireOwned(tokenId);
+        return _tokenURIs[tokenId];
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, ERC721Enumerable, ERC2981)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
+
+    // Necessario per ERC721Enumerable
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override(ERC721, ERC721Enumerable)
+        returns (address)
+    {
+        return super._update(to, tokenId, auth);
+    }
+
+    function _increaseBalance(address account, uint128 value)
+        internal
+        override(ERC721, ERC721Enumerable)
+    {
+        super._increaseBalance(account, value);
+    }
+}
