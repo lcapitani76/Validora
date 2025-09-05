@@ -229,43 +229,6 @@ const ERC20_ABI = [
 ];
 
 let provider, signer, account;
-async function ensureSetup(){
-  const L = I18N[document.documentElement.lang];
-  if(!window.ethereum) throw new Error(L.needWallet);
-  if(!provider){
-    provider = new ethers.BrowserProvider(window.ethereum);
-    signer   = await provider.getSigner();
-    account  = await signer.getAddress();
-    log(L.walletConnected(account));
-  }
-  const net = await provider.getNetwork();
-  if(net.chainId !== 97n){
-    try{
-      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x61' }] });
-    }catch(err){
-      if(err.code === 4902){
-        await window.ethereum.request({
-          method:'wallet_addEthereumChain',
-          params:[{
-            chainId:'0x61',
-            chainName:'BSC Testnet',
-            nativeCurrency:{name:'tBNB',symbol:'tBNB',decimals:18},
-            rpcUrls:['https://data-seed-prebsc-1-s1.binance.org:8545/'],
-            blockExplorerUrls:['https://testnet.bscscan.com']
-          }]
-        });
-      } else {
-        throw new Error(L.chainSwitchError(err.message));
-      }
-    }
-  }
-  const code = await provider.getCode(CONTRACT_ADDR);
-  if(!code || code === '0x'){
-    throw new Error('No contract code at address '+CONTRACT_ADDR+' on this network.');
-  }
-  return true;
-}
-
 
 $('mode').addEventListener('change', (e)=>{
   const batch = e.target.value === 'batch';
@@ -330,7 +293,6 @@ function buildMetadata(hash, size){
 $('preview').addEventListener('click', async ()=>{
   const L = I18N[document.documentElement.lang];
   try{
-    await ensureSetup();
     const mode = $('mode').value;
     if(mode==='single'){
       const f = $('file').files[0]; if(!f) return alert(L.selectAFile);
@@ -338,7 +300,7 @@ $('preview').addEventListener('click', async ()=>{
       const hash = ethers.keccak256(bytes);
       const size = BigInt(bytes.length);
       const meta = buildMetadata(hash, size);
-      const uri  = 'data:application/json;base64,' + b64utf8(JSON.stringify(meta));
+      const uri = buildMetaURIWithFallback(hash, size);
       log(L.previewHash(hash));
       log(L.previewUri(uri.slice(0,80) + '…'));
       if(!provider){ return log(L.connectFirst, '#f59e0b'); }
@@ -357,7 +319,7 @@ $('preview').addEventListener('click', async ()=>{
         const size = BigInt(bytes.length);
         hashes.push(hash); sizes.push(size);
         const meta = buildMetadata(hash, size);
-        uris.push('data:application/json;base64,' + b64utf8(JSON.stringify(meta)));
+        uris.push(buildMetaURIWithFallback(hash, size));
       }
       const cert = new ethers.Contract(CONTRACT_ADDR, CERT_ABI, provider);
       const res  = await cert.quoteBatch(sizes);
@@ -372,8 +334,7 @@ $('preview').addEventListener('click', async ()=>{
 $('approve').addEventListener('click', async ()=>{
   const L = I18N[document.documentElement.lang];
   try{
-    await ensureSetup();
-
+    if(!provider) return log(L.connectFirst, '#f59e0b');
     const cert = new ethers.Contract(CONTRACT_ADDR, CERT_ABI, provider);
     const vld  = new ethers.Contract(VLD_ADDR, ERC20_ABI, signer);
 
@@ -399,8 +360,7 @@ $('approve').addEventListener('click', async ()=>{
 $('mint').addEventListener('click', async ()=>{
   const L = I18N[document.documentElement.lang];
   try{
-    await ensureSetup();
-
+    if(!provider) return log(L.connectFirst, '#f59e0b');
     const cert = new ethers.Contract(CONTRACT_ADDR, CERT_ABI, signer);
 
     if($('mode').value==='single'){
@@ -409,7 +369,7 @@ $('mint').addEventListener('click', async ()=>{
       const hash = ethers.keccak256(bytes);
       const size = BigInt(bytes.length);
       const meta = buildMetadata(hash, size);
-      const uri  = 'data:application/json;base64,' + b64utf8(JSON.stringify(meta));
+      const uri = buildMetaURIWithFallback(hash, size);
 
       log(L.mintSingle);
       const tx = await cert.certify(hash, size, uri);
