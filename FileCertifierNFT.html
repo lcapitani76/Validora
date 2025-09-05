@@ -239,7 +239,13 @@ function updateStatus(net){
   $('statusNet').textContent  = net ? `${net.name||'unknown'} (${net.chainId})` : '—';
 }
 
+function setConnUI(connected){
+  $('btnConnect').disabled = connected;
+  $('btnDisconnect').disabled = !connected;
+}
+
 async function connectWallet(){
+
   const L = I18N[document.documentElement.lang];
   if(!window.ethereum){ alert(L.needWallet); return; }
   try{
@@ -260,12 +266,15 @@ async function connectWallet(){
   account  = await signer.getAddress();
   const net = await provider.getNetwork();
   updateStatus(net);
+    setConnUI(!!account && !!provider);
   log(I18N[document.documentElement.lang].walletConnected(account));
+  setConnUI(true);
 }
 
 function disconnectWallet(){
   provider = undefined; signer = undefined; account = undefined;
   updateStatus(null);
+  setConnUI(false);
   log('Disconnected');
 }
 
@@ -275,15 +284,19 @@ if(window.ethereum){
     account = accs && accs[0] ? accs[0] : undefined;
     const net = provider ? await provider.getNetwork() : null;
     updateStatus(net);
+    setConnUI(!!account && !!provider);
   });
   window.ethereum.on?.('chainChanged', async ()=>{
     const net = provider ? await provider.getNetwork() : null;
     updateStatus(net);
+    setConnUI(!!account && !!provider);
   });
 }
 
 $('btnConnect').addEventListener('click', connectWallet);
 $('btnDisconnect').addEventListener('click', disconnectWallet);
+// initial UI state
+setConnUI(false);
 
 $('mode').addEventListener('change', (e)=>{
   const batch = e.target.value === 'batch';
