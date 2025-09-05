@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Validora • NFT File Certification (BSC Testnet)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.11.1/dist/ethers.umd.min.js"></script>
+  <style>
+    :root{--bg:#0b1120;--card:#111827;--muted:#94a3b8;--accent:#22d3ee;--ok:#22c55e;--warn:#f59e0b;--err:#ef4444;}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#0b1120,#0f172a);color:#e2e8f0}
+    .wrap{max-width:980px;margin:24px auto;padding:16px}
+    h1{font-size:28px;margin:0 0 12px 0}
+    .card{background:var(--card);border:1px solid #1f2937;border-radius:16px;padding:18px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+    .row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+    .col{flex:1 1 240px}
+    label{font-size:12px;letter-spacing:.02em;color:var(--muted)}
+    input,button,select{width:100%;padding:12px;border-radius:12px;border:1px solid #334155;background:#0b1220;color:#e2e8f0;outline:none}
+    input:focus,select:focus{border-color:#38bdf8;box-shadow:0 0 0 3px rgba(56,189,248,.2)}
+    button{cursor:pointer;background:#0ea5e9;border-color:#0ea5e9;font-weight:600}
+    button.secondary{background:#1f2937;border-color:#334155}
+    button.ok{background:var(--ok);border-color:var(--ok)}
+    button.warn{background:var(--warn);border-color:var(--warn)}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .split{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}
+    .log{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;height:220px;overflow:auto;background:#0a0f1e;border-radius:12px;border:1px solid #1f2a3a;padding:12px}
+    .muted{color:var(--muted)}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#0b1220;border:1px solid #334155;color:#cbd5e1;font-size:12px}
+    .hr{height:1px;background:#1f2937;margin:16px 0}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    @media (max-width:900px){.split{grid-template-columns:1fr}.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Validora • NFT File Certification <span class="pill">BSC Testnet</span></h1>
+
+    <div class="card split">
+      <div>
+        <div class="grid">
+          <div>
+            <label>Contract (FileCertifierNFT)</label>
+            <input id="contract" value="0xf5539442a2E1585365d8Fdb905A745b56D7aD020"/>
+          </div>
+          <div>
+            <label>VLD Token (ERC20)</label>
+            <input id="vld" placeholder="0x..."/>
+          </div>
+        </div>
+        <div class="grid" style="margin-top:12px">
+          <div>
+            <label>Modo</label>
+            <select id="mode">
+              <option value="single">Singolo file</option>
+              <option value="batch">Batch (multi file)</option>
+            </select>
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button id="switch" class="secondary">Connetti & Switch a BSC Testnet</button>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="grid">
+          <div>
+            <label>Seleziona file</label>
+            <input id="file" type="file"/>
+          </div>
+          <div id="multiWrap" style="display:none">
+            <label>Seleziona più file</label>
+            <input id="files" type="file" multiple/>
+          </div>
+        </div>
+
+        <div class="grid" style="margin-top:12px">
+          <div>
+            <label>Anteprima metadata (inline)</label>
+            <button id="preview" class="secondary">Genera anteprima</button>
+          </div>
+          <div>
+            <label>Fee stimata</label>
+            <input id="fee" readonly placeholder="0 VLD"/>
+          </div>
+        </div>
+
+        <div class="grid" style="margin-top:12px">
+          <button id="approve" class="warn">1) Approva VLD</button>
+          <button id="mint" class="ok">2) Certify / Mint</button>
+        </div>
+      </div>
+
+      <div>
+        <label>Log</label>
+        <div id="log" class="log"></div>
+        <div style="margin-top:8px" class="muted">Suggerimento: in modalità <b>Batch</b> ogni file genera un metadata JSON con <i>image</i> SVG inline deterministico (identicon) e viene inviato a <code>certifyBatch(hashes, sizes, uris)</code>.</div>
+      </div>
+    </div>
+
+    <p class="muted" style="margin-top:12px">Questo tool non carica nulla su server: tutto avviene localmente nel browser e on‑chain.</p>
+  </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const log = (m, cls="") => { const d=document.createElement('div'); d.textContent = m; if(cls) d.style.color=cls; $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight; };
+
+const CHAIN_ID = '0x61'; // BSC Testnet
+const CERT_ABI = [
+  'function quoteItem(uint64 size) view returns (uint256)',
+  'function quoteBatch(uint64[] sizes) view returns (uint256 total, uint256 preDiscount)',
+  'function certify(bytes32 fileHash, uint64 size, string uri) external',
+  'function certifyBatch(bytes32[] hashes, uint64[] sizes, string[] uris) external',
+  'function tokenIdOf(bytes32 fileHash) pure returns (uint256)'
+];
+const ERC20_ABI = [
+  'function approve(address spender, uint256 amount) external returns (bool)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function decimals() view returns (uint8)',
+  'function symbol() view returns (string)'
+];
+
+let provider, signer, account;
+
+$('mode').addEventListener('change', (e)=>{
+  const batch = e.target.value === 'batch';
+  $('multiWrap').style.display = batch ? 'block' : 'none';
+  $('file').style.display = batch ? 'none' : 'block';
+});
+
+$('switch').addEventListener('click', async () => {
+  if (!window.ethereum) return alert('Serve un wallet (MetaMask compatibile)');
+  try {
+    // switch o aggiungi la chain
+    await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID }] });
+  } catch (err) {
+    if (err.code === 4902) {
+      await window.ethereum.request({
+        method: 'wallet_addEthereumChain',
+        params: [{ chainId: CHAIN_ID, chainName: 'BSC Testnet', nativeCurrency: { name: 'tBNB', symbol: 'tBNB', decimals: 18 }, rpcUrls: ['https://data-seed-prebsc-1-s1.binance.org:8545/'], blockExplorerUrls: ['https://testnet.bscscan.com'] }]
+      });
+    } else { log('Errore switch chain: ' + err.message, '#ef4444'); return; }
+  }
+  provider = new ethers.BrowserProvider(window.ethereum);
+  signer   = await provider.getSigner();
+  account  = await signer.getAddress();
+  log('Wallet connesso: ' + account);
+});
+
+function identiconSVG(hash, size=1000){
+  const seed = hash.slice(2);
+  const r = parseInt(seed.slice(0,2),16), g=parseInt(seed.slice(2,4),16), b=parseInt(seed.slice(4,6),16);
+  const color = `rgb(${r},${g},${b})`; const bg='#0b1120';
+  const cells=5, cell=size/cells; let rects='';
+  for(let y=0;y<cells;y++){
+    for(let x=0;x<Math.ceil(cells/2);x++){
+      const idx = (y*cells + x) % (seed.length/2);
+      const on = (parseInt(seed.slice(idx*2, idx*2+2),16) % 2)===0;
+      if(on){
+        const rx = x*cell, lx=(cells-1-x)*cell, ypx=y*cell;
+        rects += `<rect x='${rx}' y='${ypx}' width='${cell}' height='${cell}' fill='${color}'/>`;
+        if(lx!==rx) rects += `<rect x='${lx}' y='${ypx}' width='${cell}' height='${cell}' fill='${color}'/>`;
+      }
+    }
+  }
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 ${size} ${size}'>
+    <rect width='100%' height='100%' fill='${bg}'/>
+    ${rects}
+    <text x='50%' y='${size-30}' fill='#cbd5e1' font-family='Inter,Arial' font-size='${size*0.035}' text-anchor='middle'>Validora • ${hash.slice(0,10)}…</text>
+  </svg>`;
+  return 'data:image/svg+xml;base64,' + btoa(svg);
+}
+
+function buildMetadata(hash, size){
+  return {
+    name: `Validora Certification — ${hash.slice(0,10)}…`,
+    description: `On-chain proof of authenticity.\nHash: ${hash}\nAlgorithm: keccak256`,
+    image: identiconSVG(hash),
+    attributes: [
+      { trait_type: 'Hash (keccak256)', value: hash },
+      { trait_type: 'File Size (bytes)', display_type: 'number', value: Number(size) }
+    ]
+  };
+}
+
+$('preview').addEventListener('click', async ()=>{
+  try{
+    const mode = $('mode').value;
+    if(mode==='single'){
+      const f = $('file').files[0]; if(!f) return alert('Seleziona un file');
+      const bytes = new Uint8Array(await f.arrayBuffer());
+      const hash = ethers.keccak256(bytes);
+      const size = BigInt(bytes.length);
+      const meta = buildMetadata(hash, size);
+      const uri  = 'data:application/json;base64,' + btoa(JSON.stringify(meta));
+      log('Hash: ' + hash);
+      log('URI preview (inizio): ' + uri.slice(0,80) + '…');
+      // stima fee
+      const addrC = $('contract').value.trim(); const addrV = $('vld').value.trim();
+      if(!addrC){ return log('Inserisci l\'indirizzo del contratto', '#f59e0b'); }
+      if(!provider){ return log('Connetti il wallet e switcha chain', '#f59e0b'); }
+      const cert = new ethers.Contract(addrC, CERT_ABI, provider);
+      const fee  = await cert.quoteItem(size);
+      const v = ethers.formatUnits(fee, 18);
+      $('fee').value = v + ' VLD';
+      log('Fee stimata: ' + v + ' VLD');
+    } else {
+      const list = $('files').files; if(!list.length) return alert('Seleziona almeno 2 file');
+      if(!provider){ return log('Connetti il wallet e switcha chain', '#f59e0b'); }
+      const sizes=[], hashes=[], uris=[];
+      for(const f of list){
+        const bytes = new Uint8Array(await f.arrayBuffer());
+        const hash = ethers.keccak256(bytes);
+        const size = BigInt(bytes.length);
+        hashes.push(hash); sizes.push(size);
+        const meta = buildMetadata(hash, size);
+        uris.push('data:application/json;base64,' + btoa(JSON.stringify(meta)));
+      }
+      const cert = new ethers.Contract($('contract').value.trim(), CERT_ABI, provider);
+      const res  = await cert.quoteBatch(sizes);
+      const total = res[0];
+      $('fee').value = ethers.formatUnits(total, 18) + ' VLD';
+      log('Batch: ' + hashes.length + ' file, fee totale stimata: ' + ethers.formatUnits(total,18) + ' VLD');
+      // cache arrays su window per il mint
+      window._batch = { hashes, sizes, uris };
+    }
+  }catch(err){ log('Preview error: ' + (err?.message||err), '#ef4444'); }
+});
+
+$('approve').addEventListener('click', async ()=>{
+  try{
+    if(!provider) return log('Connetti il wallet', '#f59e0b');
+    const vldAddr = $('vld').value.trim();
+    const certAddr = $('contract').value.trim();
+    if(!vldAddr || !certAddr) return log('Indirizzi mancanti', '#f59e0b');
+    const cert = new ethers.Contract(certAddr, CERT_ABI, provider);
+    const vld  = new ethers.Contract(vldAddr, ERC20_ABI, signer);
+
+    let amount;
+    if($('mode').value==='single'){
+      const f=$('file').files[0]; if(!f) return alert('Seleziona un file');
+      const bytes = new Uint8Array(await f.arrayBuffer());
+      const size = BigInt(bytes.length);
+      const fee = await cert.quoteItem(size);
+      amount = fee;
+    } else {
+      if(!window._batch) return log('Fai prima "Genera anteprima" per il batch', '#f59e0b');
+      const res = await cert.quoteBatch(window._batch.sizes);
+      amount = res[0];
+    }
+    log('Approvazione VLD in corso…');
+    const tx = await vld.approve(certAddr, amount);
+    await tx.wait();
+    log('✔ Approve confermata: ' + tx.hash, '#22c55e');
+  }catch(err){ log('Approve error: ' + (err?.shortMessage||err?.message||err), '#ef4444'); }
+});
+
+$('mint').addEventListener('click', async ()=>{
+  try{
+    if(!provider) return log('Connetti il wallet', '#f59e0b');
+    const cert = new ethers.Contract($('contract').value.trim(), CERT_ABI, signer);
+
+    if($('mode').value==='single'){
+      const f=$('file').files[0]; if(!f) return alert('Seleziona un file');
+      const bytes = new Uint8Array(await f.arrayBuffer());
+      const hash = ethers.keccak256(bytes);
+      const size = BigInt(bytes.length);
+      const meta = buildMetadata(hash, size);
+      const uri  = 'data:application/json;base64,' + btoa(JSON.stringify(meta));
+
+      log('Mint singolo…');
+      const tx = await cert.certify(hash, size, uri);
+      await tx.wait();
+      log('✔ Mint OK: ' + tx.hash, '#22c55e');
+    } else {
+      if(!window._batch){ return log('Fai prima "Genera anteprima" per il batch', '#f59e0b'); }
+      const {hashes, sizes, uris} = window._batch;
+      log('Mint batch di ' + hashes.length + '…');
+      const tx = await cert.certifyBatch(hashes, sizes, uris);
+      await tx.wait();
+      log('✔ Batch mint OK: ' + tx.hash, '#22c55e');
+    }
+  }catch(err){ log('Mint error: ' + (err?.shortMessage||err?.message||err), '#ef4444'); }
+});
+</script>
+</body>
+</html>
