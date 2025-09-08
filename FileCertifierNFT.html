@@ -44,7 +44,9 @@
     .iconbtn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:rgba(15,23,42,.65);backdrop-filter:saturate(120%) blur(2px);border:1px solid #2a3648;border-radius:8px;padding:0;line-height:1;cursor:pointer}
     .iconbtn:hover{border-color:#3b4b62}
     .iconbtn svg{width:16px;height:16px;display:block;fill:#93c5fd}
-    .title{font-size:15px;font-weight:700;letter-spacing:.2px}
+    .title{font-size:15px;font-weight:700;letter-spacing:.2px;display:flex;align-items:center;gap:6px}
+    .title .badge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:999px;background:var(--ok);color:#0b1120}
+    .title .badge svg{width:12px;height:12px;display:block}
     .truncate{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .meta{font-size:12px;color:var(--muted);word-break:break-word}
     .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#0b1220;border:1px solid #334155;color:#cbd5e1;font-size:12px}
@@ -171,6 +173,7 @@ const I18N = {
     chainSwitchError:(m)=>`Network switch error: ${m}`,
     mintSingle:"Minting single…", mintOk:(h)=>`✔ Mint OK: ${h}`,
     myCerts:"My Certifications", refresh:"Refresh", myCertsHint:"NFTs minted by your connected wallet on this contract.", noCerts:"No certifications found for this wallet.",
+    certified:"Validora Certified",
     viewOnBsc:"View on BscScan", viewTx:"Mint tx"
   },
   it: {
@@ -189,6 +192,7 @@ const I18N = {
     chainSwitchError:(m)=>`Errore cambio rete: ${m}`,
     mintSingle:"Mint singolo…", mintOk:(h)=>`✔ Mint OK: ${h}`,
     myCerts:"Le mie certificazioni", refresh:"Aggiorna", myCertsHint:"NFT creati dal tuo wallet su questo contratto.", noCerts:"Nessuna certificazione trovata per questo wallet.",
+    certified:"Certificato Validora",
     viewOnBsc:"Apri su BscScan", viewTx:"Tx di mint"
   }
 };
@@ -201,7 +205,7 @@ function applyLang(lang){
     if(typeof val === 'string') el.innerHTML = val;
   });
 }
-$('lang').addEventListener('change', e => applyLang(e.target.value));
+$('lang').addEventListener('change', e => { applyLang(e.target.value); renderCerts(window._items || []); });
 applyLang('en');
 
 // ===== Chain / wallet =====
@@ -408,7 +412,7 @@ async function loadMyCerts(){
     const mintTx = await findMintTx(c, id);
     items.push({ id, uri, meta, image, mintTx });
   }
-  renderCerts(items);
+  window._items = items; renderCerts(items);
 }
 
 async function enumerateByLogs(c){
@@ -449,7 +453,7 @@ function renderCerts(items){
     eye.addEventListener('click', ()=> window.open(tokenUrl,'_blank'));
     imgwrap.appendChild(img); imgwrap.appendChild(eye);
 
-    const title = document.createElement('div'); title.className='title truncate'; title.textContent = it.meta?.name || ('Token #'+it.id);
+    const title = document.createElement('div'); title.className='title truncate'; title.innerHTML = `<span class="badge" aria-hidden="true"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 16.2l-3.5-3.5L4 14.2 9 19l11-11-1.5-1.5z"/></svg></span>${I18N[document.documentElement.lang].certified}`;
 
     const meta = document.createElement('div'); meta.className='meta';
     const attrs = it.meta?.attributes || [];
