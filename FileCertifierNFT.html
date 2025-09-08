@@ -40,7 +40,9 @@
     .certs{margin-top:18px}
     .cert-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
     .nft{background:#0a0f1e;border:1px solid #1f2937;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px}
-    .nft img{width:100%;height:200px;object-fit:contain;background:#000;border-radius:10px}
+    .nft img{width:100%;height:120px;object-fit:contain;background:#000;border-radius:10px}
+    .nft .title{font-size:14px}
+    .nft .meta{font-size:12px;color:var(--muted)}
     .muted{color:var(--muted)}
     .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#0b1220;border:1px solid #334155;color:#cbd5e1;font-size:12px}
     .link{color:#93c5fd;text-decoration:none}
@@ -397,24 +399,26 @@ function renderCerts(items){
   empty.style.display='none';
   const L = I18N[document.documentElement.lang];
   for(const it of items){
+    const tokenUrl = `${EXPLORER}/token/${CONTRACT_ADDR}?a=${it.id}`;
     const card = document.createElement('div'); card.className = 'nft';
-    const img = document.createElement('img'); img.alt = 'nft'; img.src = it.image || identiconSVG('0x'+Number(it.id).toString(16).padStart(64,'0'), 220);
-    const title = document.createElement('div'); title.innerHTML = `<b>${it.meta?.name || ('Token #' + it.id)}</b>`;
-    const small = document.createElement('div'); small.className='muted';
+    const img = document.createElement('img'); img.alt = 'nft'; img.src = it.image || identiconSVG('0x'+Number(it.id).toString(16).padStart(64,'0'), 160);
+    const title = document.createElement('div'); title.className='title'; title.innerHTML = `<b>${it.meta?.name || ('Token #' + it.id)}</b>`;
+    const meta = document.createElement('div'); meta.className='meta';
     const attrs = it.meta?.attributes || [];
     const hashAttr = attrs.find(a=> (a.trait_type||'').toLowerCase().includes('hash'));
     const sizeAttr = attrs.find(a=> (a.trait_type||'').toLowerCase().includes('file size'));
-    const lines = [];
-    lines.push(`ID: ${it.id}`);
-    if(hashAttr) lines.push(`Hash: ${hashAttr.value}`);
-    if(sizeAttr) lines.push(`Size: ${sizeAttr.value}`);
-    small.innerHTML = lines.join('<br/>');
+    const hashShort = hashAttr ? String(hashAttr.value).slice(0,10) + '…' : null;
+    const parts = [];
+    parts.push(`ID: <a class="link" target="_blank" href="${tokenUrl}">#${it.id}</a>`);
+    if(hashShort) parts.push(`Hash: <a class="link" target="_blank" href="${tokenUrl}">${hashShort}</a>`);
+    if(sizeAttr) parts.push(`Size: ${sizeAttr.value}`);
+    meta.innerHTML = parts.join('<br/>');
     const links = document.createElement('div');
     links.innerHTML = `
-      <a class="link" target="_blank" href="${EXPLORER}/token/${CONTRACT_ADDR}?a=${it.id}">${L.viewOnBsc}</a>
-      ${it.mintTx ? ` • <a class="link" target="_blank" href="${EXPLORER}/tx/${it.mintTx}">${L.viewTx}</a>` : ''}
+      <a class="link" target="_blank" href="${tokenUrl}">${L.viewOnBsc}</a>
+      ${it.mintTx ? ` • <a class=\"link\" target=\"_blank\" href=\"${EXPLORER}/tx/${it.mintTx}\">${L.viewTx}</a>` : ''}
     `;
-    card.appendChild(img); card.appendChild(title); card.appendChild(small); card.appendChild(links);
+    card.appendChild(img); card.appendChild(title); card.appendChild(meta); card.appendChild(links);
     list.appendChild(card);
   }
 }
