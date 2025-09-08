@@ -15,112 +15,43 @@
     .wrap{max-width:1080px;margin:24px auto;padding:16px}
     h1{font-size:28px;margin:0 0 12px 0}
     .card{background:var(--card);border:1px solid #1f2937;border-radius:16px;padding:18px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
-    .row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
-    .col{flex:1 1 240px}
-    label{font-size:12px;letter-spacing:.02em;color:var(--muted)}
-    input,button,select{width:100%;padding:12px;border-radius:12px;border:1px solid #334155;background:#0b1220;color:#e2e8f0;outline:none}
-    input:focus,select:focus{border-color:#38bdf8;box-shadow:0 0 0 3px rgba(56,189,248,.2)}
-    button{cursor:pointer;background:#0ea5e9;border-color:#0ea5e9;font-weight:600}
-    button.secondary{background:#1f2937;border-color:#334155}
-    button.ok{background:var(--ok);border-color:var(--ok)}
-    button.warn{background:var(--warn);border-color:var(--warn)}
-    button.ghost{background:transparent;border-color:#334155}
-    button:disabled{opacity:.6;cursor:not-allowed}
-    .hr{height:1px;background:#1f2937;margin:16px 0}
-    .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-    .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-    .topbar{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
-    .conn{display:flex;gap:8px;align-items:center}
-    .status{margin-top:8px;font-size:12px;color:#cbd5e1}
-    .status code{color:#e2e8f0}
     .footer-log{margin-top:16px}
     .log{font-family:ui-monospace, Menlo, Consolas, "Courier New", monospace;height:220px;overflow:auto;background:#0a0f1e;border-radius:12px;border:1px solid #1f2a3a;padding:12px}
 
     /* My Certifications */
     .certs{margin-top:18px}
-    .cert-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
-    .nft{background:#0a0f1e;border:1px solid #1f2937;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px}
-    .nft img{width:100%;height:120px;object-fit:contain;background:#000;border-radius:10px}
-    .nft .title{font-size:14px}
-    .nft .meta{font-size:12px;color:var(--muted)}
-    .muted{color:var(--muted)}
-    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#0b1220;border:1px solid #334155;color:#cbd5e1;font-size:12px}
-    .link{color:#93c5fd;text-decoration:none}
-    .link:hover{text-decoration:underline}
-    @media (max-width:900px){.grid2{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+    .cert-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+    .nft{background:#0a0f1e;border:1px solid #1f2937;border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+    .nft img{width:100%;height:88px;object-fit:contain;background:#000;border-radius:8px}
+    .nft .title{font-size:13px}
+    .nft .meta{font-size:12px;color:var(--muted);word-break:break-word}
+    .nft .head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .iconbtn{background:transparent;border:1px solid #2a3648;border-radius:8px;padding:6px;line-height:1;cursor:pointer}
+    .iconbtn:hover{border-color:#3b4b62}
+    .iconbtn svg{width:16px;height:16px;display:block;fill:#93c5fd}
+    .truncate{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .nft .title{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .nft .meta{font-size:11px;color:var(--muted);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .nft .links{font-size:12px;margin-top:4px;display:flex;gap:8px}
+    .icon-eye{cursor:pointer;color:#93c5fd}
+    .icon-eye:hover{text-decoration:underline}
+    [data-tooltip]{position:relative;cursor:pointer}
+    [data-tooltip]:hover::after{
+      content:attr(data-tooltip);
+      position:absolute;bottom:125%;left:50%;transform:translateX(-50%);
+      background:#111827;color:#e2e8f0;padding:4px 8px;border-radius:6px;font-size:11px;white-space:nowrap;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="topbar">
-      <div>
-        <h1 data-i18n="title">Validora • NFT File Certification <span class="pill">BSC Testnet</span></h1>
-        <div class="muted" style="margin-top:4px">
-          <label for="lang" class="muted" data-i18n="language">Language</label>
-          <select id="lang" style="width:auto;display:inline-block;margin-left:8px">
-            <option value="en">English</option>
-            <option value="it">Italiano</option>
-          </select>
-        </div>
-      </div>
-      <div>
-        <div class="conn">
-          <button id="btnConnect" class="ok" data-i18n="btnConnect">Connect wallet</button>
-          <button id="btnDisconnect" class="ghost" data-i18n="btnDisconnect">Disconnect</button>
-        </div>
-        <div class="status">
-          <div><span data-i18n="statusWallet">Wallet:</span> <code id="statusAddr">—</code></div>
-          <div><span data-i18n="statusNetwork">Network:</span> <code id="statusNet">—</code></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- MAIN ACTION -->
-    <div class="card">
-      <!-- Hidden, hard-coded addresses (non editable) -->
-      <input id="contract" type="hidden" value="0xf5539442a2E1585365d8Fdb905A745b56D7aD020"/>
-      <input id="vld" type="hidden" value="0xD6B7DA76B70875f0959aFb20467cD991D89Cf89b"/>
-
-      <div class="grid2">
-        <div>
-          <label data-i18n="selectFile">Select file</label>
-          <input id="file" type="file"/>
-        </div>
-        <div>
-          <label data-i18n="previewLabel">Metadata preview (inline)</label>
-          <button id="preview" class="secondary" data-i18n="preview">Generate preview</button>
-        </div>
-      </div>
-
-      <div class="grid2" style="margin-top:12px">
-        <div>
-          <label data-i18n="feeLabel">Estimated fee</label>
-          <input id="fee" readonly placeholder="0 VLD"/>
-        </div>
-        <div class="grid2">
-          <button id="approve" class="warn" data-i18n="approve">1) Approve VLD</button>
-          <button id="mint" class="ok" data-i18n="mint">2) Certify / Mint</button>
-        </div>
-      </div>
-
-      <p class="muted" style="margin-top:12px" data-i18n="privacy">This tool uploads nothing to servers: everything runs locally in your browser and on‑chain.</p>
-    </div>
-
-    <!-- MY CERTIFICATIONS -->
     <div class="card certs">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">
-        <h2 style="margin:0" data-i18n="myCerts">My Certifications</h2>
-        <div style="display:flex;gap:8px">
-          <button id="refresh" class="secondary" data-i18n="refresh">Refresh</button>
-        </div>
-      </div>
+      <h2 style="margin:0" data-i18n="myCerts">My Certifications</h2>
       <div class="muted" data-i18n="myCertsHint">NFTs minted by your connected wallet on this contract.</div>
       <div class="hr"></div>
       <div id="certList" class="cert-grid"></div>
       <div id="emptyState" class="muted" style="display:none;margin-top:8px" data-i18n="noCerts">No certifications found for this wallet.</div>
     </div>
-
-    <!-- FOOTER LOG -->
     <div class="footer-log">
       <label data-i18n="log">Log</label>
       <div id="log" class="log"></div>
@@ -129,268 +60,6 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-const log = (m, cls="") => { const d=document.createElement('div'); d.innerHTML = m; if(cls) d.style.color=cls; $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight; };
-
-// Base64 (UTF‑8 safe)
-function b64utf8(str){
-  const bytes = new TextEncoder().encode(str);
-  let binary = ''; const chunk = 0x8000;
-  for(let i=0;i<bytes.length;i+=chunk){ binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk)); }
-  return btoa(binary);
-}
-function b64json(dataURI){
-  try{
-    const base64 = dataURI.split(',')[1];
-    const jsonStr = atob(base64);
-    return JSON.parse(jsonStr);
-  }catch{return null}
-}
-
-// ===== Addresses =====
-const CONTRACT_ADDR = $('contract').value; // FileCertifierNFT
-const VLD_ADDR      = $('vld').value;      // VLD token
-const EXPLORER      = 'https://testnet.bscscan.com';
-
-// ===== I18N =====
-const I18N = {
-  en: {
-    title:"Validora • NFT File Certification <span class=\"pill\">BSC Testnet</span>",
-    language:"Language",
-    btnConnect:"Connect wallet", btnDisconnect:"Disconnect",
-    statusWallet:"Wallet:", statusNetwork:"Network:",
-    selectFile:"Select file", previewLabel:"Metadata preview (inline)", preview:"Generate preview",
-    feeLabel:"Estimated fee", approve:"1) Approve VLD", mint:"2) Certify / Mint",
-    privacy:"This tool uploads nothing to servers: everything runs locally in your browser and on‑chain.",
-    needWallet:"A compatible wallet is required (e.g. MetaMask).",
-    connectFirst:"Connect your wallet and switch network.",
-    selectAFile:"Please choose a file.",
-    feeEstimated:(v)=>`Estimated fee: ${v} VLD`,
-    walletConnected:(a)=>`Wallet connected: ${a}`,
-    chainSwitchError:(m)=>`Network switch error: ${m}`,
-    mintSingle:"Minting single…", mintOk:(h)=>`✔ Mint OK: ${h}`,
-    myCerts:"My Certifications", refresh:"Refresh", myCertsHint:"NFTs minted by your connected wallet on this contract.", noCerts:"No certifications found for this wallet.",
-    viewOnBsc:"View on BscScan", viewTx:"Mint tx"
-  },
-  it: {
-    title:"Validora • Certificazione File via NFT <span class=\"pill\">BSC Testnet</span>",
-    language:"Lingua",
-    btnConnect:"Connetti wallet", btnDisconnect:"Disconnetti",
-    statusWallet:"Wallet:", statusNetwork:"Rete:",
-    selectFile:"Seleziona file", previewLabel:"Anteprima metadata (inline)", preview:"Genera anteprima",
-    feeLabel:"Fee stimata", approve:"1) Approva VLD", mint:"2) Certify / Mint",
-    privacy:"Questo tool non carica nulla su server: tutto avviene localmente nel browser e on‑chain.",
-    needWallet:"Serve un wallet compatibile (es. MetaMask).",
-    connectFirst:"Connetti il wallet e cambia rete.",
-    selectAFile:"Seleziona un file.",
-    feeEstimated:(v)=>`Fee stimata: ${v} VLD`,
-    walletConnected:(a)=>`Wallet connesso: ${a}`,
-    chainSwitchError:(m)=>`Errore cambio rete: ${m}`,
-    mintSingle:"Mint singolo…", mintOk:(h)=>`✔ Mint OK: ${h}`,
-    myCerts:"Le mie certificazioni", refresh:"Aggiorna", myCertsHint:"NFT creati dal tuo wallet su questo contratto.", noCerts:"Nessuna certificazione trovata per questo wallet.",
-    viewOnBsc:"Apri su BscScan", viewTx:"Tx di mint"
-  }
-};
-function applyLang(lang){
-  document.documentElement.lang = lang === 'it' ? 'it' : 'en';
-  const dict = I18N[lang];
-  document.querySelectorAll('[data-i18n]').forEach(el=>{
-    const key = el.getAttribute('data-i18n');
-    const val = dict[key];
-    if(typeof val === 'string') el.innerHTML = val;
-  });
-}
-$('lang').addEventListener('change', e => applyLang(e.target.value));
-applyLang('en');
-
-// ===== Chain / wallet =====
-const CHAIN_ID_HEX = '0x61'; // BSC Testnet
-let provider, signer, account;
-
-function shortAddr(a){ return a ? a.slice(0,6) + '…' + a.slice(-4) : '—'; }
-function updateStatus(net){
-  $('statusAddr').textContent = account ? shortAddr(account) : '—';
-  $('statusNet').textContent  = net ? `${net.name||'unknown'} (${net.chainId})` : '—';
-}
-function setConnUI(connected){ $('btnConnect').disabled = connected; $('btnDisconnect').disabled = !connected; }
-
-async function connectWallet(){
-  const L = I18N[document.documentElement.lang];
-  if(!window.ethereum){ alert(L.needWallet); return; }
-  try{
-    await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{ chainId: CHAIN_ID_HEX }] });
-  }catch(err){
-    if(err.code === 4902){
-      await window.ethereum.request({ method:'wallet_addEthereumChain', params:[{ chainId: CHAIN_ID_HEX, chainName:'BSC Testnet', nativeCurrency:{name:'tBNB',symbol:'tBNB',decimals:18}, rpcUrls:['https://data-seed-prebsc-1-s1.binance.org:8545/'], blockExplorerUrls:['https://testnet.bscscan.com'] }] });
-    } else { log(L.chainSwitchError(err.message), '#ef4444'); return; }
-  }
-  provider = new ethers.BrowserProvider(window.ethereum);
-  signer   = await provider.getSigner();
-  account  = await signer.getAddress();
-  const net = await provider.getNetwork();
-  updateStatus(net); setConnUI(!!account && !!provider);
-  log(I18N[document.documentElement.lang].walletConnected(account));
-  setConnUI(true);
-  await loadMyCerts();
-}
-function disconnectWallet(){ provider=undefined; signer=undefined; account=undefined; updateStatus(null); setConnUI(false); log('Disconnected'); renderCerts([]); }
-
-if(window.ethereum){
-  window.ethereum.on?.('accountsChanged', async (accs)=>{ account = accs && accs[0] ? accs[0] : undefined; const net = provider ? await provider.getNetwork() : null; updateStatus(net); setConnUI(!!account && !!provider); if(account) await loadMyCerts(); else renderCerts([]); });
-  window.ethereum.on?.('chainChanged', async ()=>{ const net = provider ? await provider.getNetwork() : null; updateStatus(net); setConnUI(!!account && !!provider); if(account) await loadMyCerts(); });
-}
-$('btnConnect').addEventListener('click', connectWallet);
-$('btnDisconnect').addEventListener('click', disconnectWallet);
-setConnUI(false);
-
-// ===== Contract helpers =====
-const ABI_READ = [
-  'function quoteItem(uint64) view returns (uint256)',
-  'function tokenURI(uint256) view returns (string)',
-  'function balanceOf(address) view returns (uint256)',
-  'function tokenOfOwnerByIndex(address,uint256) view returns (uint256)', // ERC721Enumerable (optional)
-  'function supportsInterface(bytes4) view returns (bool)',
-  'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)'
-];
-
-function identiconSVG(hash, size=600){
-  const seed = hash.slice(2); const color = '#' + seed.slice(0,6);
-  const cells=5, cell=size/cells; let rects='';
-  for(let y=0;y<cells;y++){
-    for(let x=0;x<Math.ceil(cells/2);x++){
-      const idx = (y*cells + x) % (seed.length/2);
-      const on = (parseInt(seed.slice(idx*2, idx*2+2),16) & 1)===0;
-      if(on){ const rx = x*cell, lx=(cells-1-x)*cell, ypx=y*cell; rects += `<rect x='${rx}' y='${ypx}' width='${cell}' height='${cell}' fill='${color}'/>`; if(lx!==rx) rects += `<rect x='${lx}' y='${ypx}' width='${cell}' height='${cell}' fill='${color}'/>`; }
-    }
-  }
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${size} ${size}' width='${size}' height='${size}'>${rects}</svg>`;
-  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
-}
-
-function buildMetaURIWithFallback(hash, size){
-  try{
-    const meta = { name:`Validora Certification — ${hash.slice(0,10)}…`, description:`On-chain proof of authenticity.\nHash: ${hash}\nAlgorithm: keccak256`, image: identiconSVG(hash, 240), attributes:[ {trait_type:'Hash (keccak256)', value:hash}, {trait_type:'File Size (bytes)', display_type:'number', value:Number(size)} ] };
-    let uri = 'data:application/json;base64,' + b64utf8(JSON.stringify(meta));
-    if(uri.length>2000){ const compact={ name:`Validora — ${hash.slice(0,10)}…`, image:identiconSVG(hash,200), attributes:[ {trait_type:'Hash (keccak256)', value:hash}, {trait_type:'File Size (bytes)', display_type:'number', value:Number(size)} ]}; uri = 'data:application/json;base64,' + b64utf8(JSON.stringify(compact)); }
-    return uri;
-  }catch(e){ const minimal={ name:`Validora — ${hash.slice(0,10)}…`, image: identiconSVG(hash,160) }; return 'data:application/json;base64,' + b64utf8(JSON.stringify(minimal)); }
-}
-
-function needConnection(){ return !(provider && signer && account); }
-
-// ===== Single-file flow =====
-$('preview').addEventListener('click', async ()=>{
-  const L = I18N[document.documentElement.lang];
-  try{
-    if(needConnection()) return log(L.connectFirst, '#f59e0b');
-    const f = $('file').files[0]; if(!f) return alert(L.selectAFile);
-    const bytes = new Uint8Array(await f.arrayBuffer());
-    const hash = ethers.keccak256(bytes);
-    const size = BigInt(bytes.length);
-    const uri  = buildMetaURIWithFallback(hash, size);
-    log(`Hash: ${hash}`);
-    log(`URI preview (begin): ${uri.slice(0,80)}…`);
-    const cert = new ethers.Contract(CONTRACT_ADDR, [ 'function quoteItem(uint64) view returns (uint256)' ], provider);
-    const fee  = await cert.quoteItem(size);
-    const v = ethers.formatUnits(fee, 18);
-    $('fee').value = v + ' VLD';
-    log(L.feeEstimated(v));
-  }catch(err){ log('Preview error: ' + (err?.message||err), '#ef4444'); }
-});
-
-$('approve').addEventListener('click', async ()=>{
-  const L = I18N[document.documentElement.lang];
-  try{
-    if(needConnection()) return log(L.connectFirst, '#f59e0b');
-    const f=$('file').files[0]; if(!f) return alert(L.selectAFile);
-    const bytes = new Uint8Array(await f.arrayBuffer());
-    const size = BigInt(bytes.length);
-    const cert = new ethers.Contract(CONTRACT_ADDR, [ 'function quoteItem(uint64) view returns (uint256)' ], provider);
-    const amount = await cert.quoteItem(size);
-    const vld  = new ethers.Contract(VLD_ADDR, [ 'function approve(address,uint256) external returns (bool)' ], signer);
-    log(L.approve ? L.approve : 'Approving VLD…');
-    const tx = await vld.approve(CONTRACT_ADDR, amount); await tx.wait();
-    log((L.approveOk ? L.approveOk(tx.hash) : ('✔ Approve confirmed: ' + tx.hash)), '#22c55e');
-  }catch(err){ log('Approve error: ' + (err?.shortMessage||err?.message||err), '#ef4444'); }
-});
-
-$('mint').addEventListener('click', async ()=>{
-  const L = I18N[document.documentElement.lang];
-  try{
-    if(needConnection()) return log(L.connectFirst, '#f59e0b');
-    const f=$('file').files[0]; if(!f) return alert(L.selectAFile);
-    const bytes = new Uint8Array(await f.arrayBuffer());
-    const hash = ethers.keccak256(bytes);
-    const size = BigInt(bytes.length);
-    const uri  = buildMetaURIWithFallback(hash, size);
-    const cert = new ethers.Contract(CONTRACT_ADDR, [ 'function certify(bytes32,uint64,string) external', 'event Transfer(address indexed from,address indexed to,uint256 indexed tokenId)' ], signer);
-    log(L.mintSingle);
-    const tx = await cert.certify(hash, size, uri);
-    const receipt = await tx.wait();
-    log(L.mintOk(tx.hash), '#22c55e');
-    // Try extract tokenId from Transfer(0x0 -> account)
-    let tokenId = null;
-    try{
-      const iface = new ethers.Interface([ 'event Transfer(address indexed from,address indexed to,uint256 indexed tokenId)' ]);
-      for(const lg of receipt.logs){
-        try{ const p = iface.parseLog(lg); if(p && p.name==='Transfer' && p.args.from === ethers.ZeroAddress && p.args.to.toLowerCase() === account.toLowerCase()){ tokenId = p.args.tokenId.toString(); break; } }catch{}
-      }
-    }catch{}
-    await loadMyCerts();
-    if(tokenId){ log(`TokenID: ${tokenId} • <a class="link" target="_blank" href="${EXPLORER}/token/${CONTRACT_ADDR}?a=${tokenId}">BscScan</a>`); log(`<a class="link" target="_blank" href="${EXPLORER}/tx/${tx.hash}">TX</a>`); }
-  }catch(err){ log('Mint error: ' + (err?.shortMessage||err?.message||err), '#ef4444'); }
-});
-
-// ===== My Certifications =====
-$('refresh').addEventListener('click', loadMyCerts);
-
-async function loadMyCerts(){
-  if(!provider || !account) { renderCerts([]); return; }
-  const c = new ethers.Contract(CONTRACT_ADDR, ABI_READ, provider);
-  let hasEnumerable = false; try{ hasEnumerable = await c.supportsInterface('0x780e9d63'); }catch{}
-  let tokenIds = [];
-  if(hasEnumerable){
-    try{
-      const bal = await c.balanceOf(account);
-      const n = Number(bal);
-      for(let i=0;i<n;i++){
-        try{ const id = await c.tokenOfOwnerByIndex(account, i); tokenIds.push(id.toString()); }catch{}
-      }
-    }catch(e){ log('Enumerable read failed, fallback to logs', '#f59e0b'); tokenIds = await enumerateByLogs(c); }
-  } else {
-    tokenIds = await enumerateByLogs(c);
-  }
-  // Fetch metadata
-  const items = [];
-  for(const id of tokenIds){
-    let uri, meta=null, image='';
-    try{ uri = await c.tokenURI(id); if(uri && uri.startsWith('data:application/json;base64,')){ meta = b64json(uri); image = meta?.image || ''; } }catch{}
-    const mintTx = await findMintTx(c, id);
-    items.push({ id, uri, meta, image, mintTx });
-  }
-  renderCerts(items);
-}
-
-async function enumerateByLogs(c){
-  try{
-    const fromTopic = '0x' + '0'.repeat(64); // zero address
-    const toTopic   = '0x' + account.slice(2).padStart(64,'0');
-    const filter = { address: CONTRACT_ADDR, topics:[ ethers.id('Transfer(address,address,uint256)'), fromTopic, toTopic ] };
-    const logs = await provider.getLogs(filter);
-    const ids = logs.map(lg => BigInt(lg.topics[3]).toString());
-    // de-dup
-    return [...new Set(ids)];
-  }catch(e){ log('Log scan failed (permissions or RPC)', '#ef4444'); return []; }
-}
-
-async function findMintTx(c, tokenId){
-  try{
-    const fromTopic = '0x' + '0'.repeat(64);
-    const idTopic = '0x' + BigInt(tokenId).toString(16).padStart(64,'0');
-    const filter = { address: CONTRACT_ADDR, topics:[ ethers.id('Transfer(address,address,uint256)'), fromTopic, null, idTopic ] };
-    const logs = await provider.getLogs(filter);
-    if(logs && logs[0]) return logs[0].transactionHash; else return null;
-  }catch{ return null }
-}
 
 function renderCerts(items){
   const list = $('certList'); const empty = $('emptyState');
@@ -401,24 +70,28 @@ function renderCerts(items){
   for(const it of items){
     const tokenUrl = `${EXPLORER}/token/${CONTRACT_ADDR}?a=${it.id}`;
     const card = document.createElement('div'); card.className = 'nft';
-    const img = document.createElement('img'); img.alt = 'nft'; img.src = it.image || identiconSVG('0x'+Number(it.id).toString(16).padStart(64,'0'), 160);
-    const title = document.createElement('div'); title.className='title'; title.innerHTML = `<b>${it.meta?.name || ('Token #' + it.id)}</b>`;
+    const img = document.createElement('img'); img.alt = 'nft'; img.src = it.image || identiconSVG('0x'+Number(it.id).toString(16).padStart(64,'0'), 140);
+
+    const head = document.createElement('div'); head.className='head';
+    const title = document.createElement('div'); title.className='title truncate'; title.innerHTML = `<b>${it.meta?.name || ('Token #' + it.id)}</b>`;
+    const eye = document.createElement('button'); eye.className='iconbtn'; eye.title = L.viewOnBsc; eye.innerHTML = `
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 5c-4.5 0-8.4 2.7-10 7 1.6 4.3 5.5 7 10 7s8.4-2.7 10-7c-1.6-4.3-5.5-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>`;
+    eye.addEventListener('click', ()=> window.open(tokenUrl,'_blank'));
+    head.appendChild(title); head.appendChild(eye);
+
     const meta = document.createElement('div'); meta.className='meta';
     const attrs = it.meta?.attributes || [];
     const hashAttr = attrs.find(a=> (a.trait_type||'').toLowerCase().includes('hash'));
     const sizeAttr = attrs.find(a=> (a.trait_type||'').toLowerCase().includes('file size'));
-    const hashShort = hashAttr ? String(hashAttr.value).slice(0,10) + '…' : null;
-    const parts = [];
-    parts.push(`ID: <a class="link" target="_blank" href="${tokenUrl}">#${it.id}</a>`);
-    if(hashShort) parts.push(`Hash: <a class="link" target="_blank" href="${tokenUrl}">${hashShort}</a>`);
-    if(sizeAttr) parts.push(`Size: ${sizeAttr.value}`);
-    meta.innerHTML = parts.join('<br/>');
-    const links = document.createElement('div');
-    links.innerHTML = `
-      <a class="link" target="_blank" href="${tokenUrl}">${L.viewOnBsc}</a>
-      ${it.mintTx ? ` • <a class=\"link\" target=\"_blank\" href=\"${EXPLORER}/tx/${it.mintTx}\">${L.viewTx}</a>` : ''}
-    `;
-    card.appendChild(img); card.appendChild(title); card.appendChild(meta); card.appendChild(links);
+    const hashShort = hashAttr ? String(hashAttr.value).slice(0,6) + '…' + String(hashAttr.value).slice(-4) : null;
+    const idShort = '#' + (String(it.id).length>8 ? (String(it.id).slice(0,4)+'…'+String(it.id).slice(-3)) : String(it.id));
+    const lines = [];
+    lines.push(`ID: ${idShort}`);
+    if(hashShort) lines.push(`Hash: ${hashShort}`);
+    if(sizeAttr) lines.push(`Size: ${sizeAttr.value}`);
+    meta.innerHTML = lines.join('<br/>');
+
+    card.appendChild(img); card.appendChild(head); card.appendChild(meta);
     list.appendChild(card);
   }
 }
